@@ -1,0 +1,15 @@
+$ tauri "dev"
+     Running BeforeDevCommand (`pnpm dev`)
+$ vite
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m223[22m[2m[0m ms[22m
+
+  [32mÔ×£[39m  [1mLocal[22m:   [36mhttp://localhost:[1m1420[22m/[39m
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching D:\SpireByte-V2\src-tauri for changes...
+   Compiling spirebyte v0.1.0 (D:\SpireByte-V2\src-tauri)
+    Building [=======================> ] 406/408: spirebyÔÇª
+    Building [=======================> ] 407/408: spirebyÔÇª
+                                                            
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.33s
+     Running `target\debug\spirebyte.exe`

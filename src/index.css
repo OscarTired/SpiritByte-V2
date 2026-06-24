@@ -1,0 +1,275 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Geist Pixel font family ---- */
+@font-face {
+  font-family: "GeistPixelSquare";
+  src: url("/fonts/GeistPixel-Square.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "GeistPixelGrid";
+  src: url("/fonts/GeistPixel-Grid.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "GeistPixelCircle";
+  src: url("/fonts/GeistPixel-Circle.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "GeistPixelTriangle";
+  src: url("/fonts/GeistPixel-Triangle.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "GeistPixelLine";
+  src: url("/fonts/GeistPixel-Line.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  /* Default palette (Amber CRT). Overridden at runtime by applyTheme. */
+  --sb-bg: 13 12 10;
+  --sb-surface: 26 23 18;
+  --sb-surface-2: 38 33 24;
+  --sb-border: 82 66 38;
+  --sb-text: 245 214 150;
+  --sb-text-dim: 168 140 92;
+  --sb-primary: 255 176 0;
+  --sb-accent: 255 213 102;
+  --sb-danger: 240 92 64;
+  --sb-success: 120 200 80;
+  --sb-warning: 255 176 0;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: rgb(var(--sb-border));
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: rgb(var(--sb-bg));
+    color: rgb(var(--sb-text));
+    font-family: "VT323", ui-monospace, monospace;
+    font-size: 18px;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Font modes driven by data-font on <html>. */
+  html[data-font="pixel"] body {
+    font-family: "Press Start 2P", monospace;
+    font-size: 12px;
+  }
+  html[data-font="mono"] body {
+    font-family: "VT323", monospace;
+  }
+  html[data-font="geist-square"] body {
+    font-family: "GeistPixelSquare", monospace;
+    font-size: 14px;
+  }
+  html[data-font="geist-grid"] body {
+    font-family: "GeistPixelGrid", monospace;
+    font-size: 14px;
+  }
+  html[data-font="geist-circle"] body {
+    font-family: "GeistPixelCircle", monospace;
+    font-size: 14px;
+  }
+  html[data-font="geist-triangle"] body {
+    font-family: "GeistPixelTriangle", monospace;
+    font-size: 14px;
+  }
+  html[data-font="geist-line"] body {
+    font-family: "GeistPixelLine", monospace;
+    font-size: 14px;
+  }
+
+  /* Default (mixed): headings/buttons use Press Start 2P, body uses VT323 */
+  h1,
+  h2,
+  h3,
+  .font-pixel {
+    font-family: "Press Start 2P", monospace;
+  }
+  /* mono: everything uses VT323 */
+  html[data-font="mono"] h1,
+  html[data-font="mono"] h2,
+  html[data-font="mono"] h3,
+  html[data-font="mono"] .font-pixel {
+    font-family: "VT323", monospace;
+  }
+  /* pixel: everything uses Press Start 2P (already set above) */
+  /* geist-*: everything uses the Geist variant */
+  html[data-font^="geist-"] h1,
+  html[data-font^="geist-"] h2,
+  html[data-font^="geist-"] h3,
+  html[data-font^="geist-"] .font-pixel {
+    font-family: inherit;
+    font-weight: bold;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+
+  /* Hide native Edge/Chromium password reveal eye */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
+  ::selection {
+    background: rgb(var(--sb-primary) / 0.35);
+  }
+
+  /* Retro scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--sb-surface));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--sb-border));
+    border: 2px solid rgb(var(--sb-surface));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--sb-primary) / 0.7);
+  }
+}
+
+@layer components {
+  /* Hard pixel border + offset shadow for a chunky retro panel. */
+  .pixel-border {
+    border: 2px solid rgb(var(--sb-border));
+    box-shadow: 4px 4px 0 0 rgb(0 0 0 / 0.5);
+  }
+  .pixel-border-primary {
+    border: 2px solid rgb(var(--sb-primary));
+  }
+
+  .panel {
+    background: rgb(var(--sb-surface) / var(--sb-panel-opacity, 1));
+    border: 2px solid rgb(var(--sb-border));
+    backdrop-filter: blur(var(--sb-panel-blur, 0px));
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-pixel text-[11px] uppercase tracking-wider transition-all duration-75 select-none;
+    border: 2px solid rgb(var(--sb-border));
+    background: rgb(var(--sb-surface-2));
+    color: rgb(var(--sb-text));
+  }
+  html[data-font="mono"] .btn {
+    font-family: "VT323", monospace;
+    font-size: 18px;
+  }
+  html[data-font^="geist-"] .btn {
+    font-family: inherit;
+    font-size: 14px;
+  }
+  .btn:hover:not(:disabled) {
+    border-color: rgb(var(--sb-primary));
+    color: rgb(var(--sb-primary));
+  }
+  .btn:active:not(:disabled) {
+    transform: translate(2px, 2px);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: rgb(var(--sb-primary) / 0.15);
+    border-color: rgb(var(--sb-primary));
+    color: rgb(var(--sb-primary));
+  }
+  .btn-danger:hover:not(:disabled) {
+    border-color: rgb(var(--sb-danger));
+    color: rgb(var(--sb-danger));
+  }
+
+  .field {
+    @apply w-full px-3 py-2 outline-none transition-colors;
+    background: rgb(var(--sb-bg));
+    border: 2px solid rgb(var(--sb-border));
+    color: rgb(var(--sb-text));
+    font-family: "VT323", monospace;
+    font-size: 18px;
+  }
+  .field:focus {
+    border-color: rgb(var(--sb-primary));
+  }
+
+  .label {
+    @apply block mb-1 font-pixel text-[9px] uppercase tracking-wider;
+    color: rgb(var(--sb-text-dim));
+  }
+}
+
+/* ---- CRT effects (toggled by applyTheme) ---- */
+.fx-scanlines body::before,
+.fx-scanlines #root::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.18) 0px,
+    rgb(0 0 0 / 0.18) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.fx-glow .glow-text {
+  text-shadow: 0 0 6px rgb(var(--sb-primary) / 0.7);
+}
+.fx-glow .glow-accent {
+  text-shadow: 0 0 6px rgb(var(--sb-accent) / 0.7);
+}
+
+.fx-flicker #root {
+  animation: flicker 6s linear infinite;
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.86;
+  }
+  94% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.92;
+  }
+}
+
+.text-shadow-glow {
+  text-shadow: 0 0 8px rgb(var(--sb-primary) / 0.8);
+}
