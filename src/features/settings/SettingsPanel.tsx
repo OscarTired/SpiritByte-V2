@@ -1,9 +1,10 @@
 import { useRef, useCallback } from "react";
 import { useSettings } from "@/store/useSettings";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { isTauri } from "@/lib/utils";
 import { PRESETS, type Palette } from "@/theme/palettes";
-import type { FontMode } from "@/theme/settings";
+import type { FontMode, Language } from "@/theme/settings";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -18,13 +19,13 @@ const CSS_VAR: Partial<Record<keyof Palette, string>> = {
   danger: "--sb-danger",
 };
 
-const PALETTE_LABELS: { key: keyof Palette; label: string }[] = [
-  { key: "bg", label: "Fondo" },
-  { key: "surface", label: "Panel" },
-  { key: "primary", label: "Primario" },
-  { key: "accent", label: "Acento" },
-  { key: "text", label: "Texto" },
-  { key: "danger", label: "Peligro" },
+const PALETTE_LABELS: { key: keyof Palette; labelKey: TranslationKey }[] = [
+  { key: "bg", labelKey: "palette.bg" },
+  { key: "surface", labelKey: "palette.surface" },
+  { key: "primary", labelKey: "palette.primary" },
+  { key: "accent", labelKey: "palette.accent" },
+  { key: "text", labelKey: "palette.text" },
+  { key: "danger", labelKey: "palette.danger" },
 ];
 
 function channelToHex(channel: string): string {
@@ -42,19 +43,35 @@ function hexToChannel(hex: string): string {
   return `${r} ${g} ${b}`;
 }
 
-const FONTS: { id: FontMode; label: string }[] = [
-  { id: "mixed", label: "Mixta" },
-  { id: "mono", label: "VT323" },
-  { id: "pixel", label: "Press Start" },
-  { id: "geist-square", label: "GP Square" },
-  { id: "geist-grid", label: "GP Grid" },
-  { id: "geist-circle", label: "GP Circle" },
-  { id: "geist-triangle", label: "GP Triangle" },
-  { id: "geist-line", label: "GP Line" },
+const FONTS: { id: FontMode; labelKey: TranslationKey }[] = [
+  { id: "mixed", labelKey: "settings.mixed" },
+  { id: "mono", labelKey: "mono" as TranslationKey },
+  { id: "pixel", labelKey: "pixel" as TranslationKey },
+  { id: "geist-square", labelKey: "geist-square" as TranslationKey },
+  { id: "geist-grid", labelKey: "geist-grid" as TranslationKey },
+  { id: "geist-circle", labelKey: "geist-circle" as TranslationKey },
+  { id: "geist-triangle", labelKey: "geist-triangle" as TranslationKey },
+  { id: "geist-line", labelKey: "geist-line" as TranslationKey },
+];
+
+const FONT_LABELS: Record<string, string> = {
+  mono: "VT323",
+  pixel: "Press Start",
+  "geist-square": "GP Square",
+  "geist-grid": "GP Grid",
+  "geist-circle": "GP Circle",
+  "geist-triangle": "GP Triangle",
+  "geist-line": "GP Line",
+};
+
+const LANGS: { id: Language; labelKey: TranslationKey }[] = [
+  { id: "es", labelKey: "settings.spanish" },
+  { id: "en", labelKey: "settings.english" },
 ];
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { settings, update, setPaletteById, reset } = useSettings();
+  const t = useI18n((s) => s.t);
   const fileRef = useRef<HTMLInputElement>(null);
   const colorDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,10 +110,10 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Personalización" width={620}>
+    <Modal open={open} onClose={onClose} title={t("settings.title")} width={620}>
       <div className="space-y-6">
         <section>
-          <h3 className="label mb-2">Paletas</h3>
+          <h3 className="label mb-2">{t("settings.palettes")}</h3>
           <div className="grid grid-cols-5 gap-2">
             {PRESETS.map((p) => (
               <button
@@ -115,7 +132,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                     />
                   ))}
                 </span>
-                <span className="text-[10px] text-text-dim text-center leading-tight">
+                <span className="text-xs text-text-dim text-center leading-tight">
                   {p.name}
                 </span>
               </button>
@@ -124,9 +141,9 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         </section>
 
         <section>
-          <h3 className="label mb-2">Colores personalizados</h3>
+          <h3 className="label mb-2">{t("settings.customColors")}</h3>
           <div className="grid grid-cols-3 gap-3">
-            {PALETTE_LABELS.map(({ key, label }) => (
+            {PALETTE_LABELS.map(({ key, labelKey }) => (
               <label key={key} className="flex items-center gap-2">
                 <input
                   type="color"
@@ -137,14 +154,14 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   }}
                   className="h-8 w-8 cursor-pointer border-2 border-border bg-transparent"
                 />
-                <span className="text-term text-text-dim">{label}</span>
+                <span className="text-term text-text-dim">{t(labelKey)}</span>
               </label>
             ))}
           </div>
         </section>
 
         <section>
-          <h3 className="label mb-2">Tipografía</h3>
+          <h3 className="label mb-2">{t("settings.typography")}</h3>
           <div className="flex flex-wrap gap-2">
             {FONTS.map((f) => (
               <Button
@@ -152,17 +169,47 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 variant={settings.font === f.id ? "primary" : "default"}
                 onClick={() => update({ font: f.id })}
               >
-                {f.label}
+                {f.id === "mixed" ? t(f.labelKey) : FONT_LABELS[f.id]}
+              </Button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <span className="text-text-dim text-sm w-24">{t("settings.fontSize")}</span>
+            <input
+              type="range"
+              min={10}
+              max={28}
+              step={1}
+              value={settings.fontSize}
+              onChange={(e) => update({ fontSize: Number(e.target.value) })}
+              className="flex-1 accent-[rgb(var(--sb-primary))]"
+            />
+            <span className="text-text-dim text-sm w-10 text-right">
+              {settings.fontSize}px
+            </span>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="label mb-2">{t("settings.language")}</h3>
+          <div className="flex gap-2">
+            {LANGS.map((l) => (
+              <Button
+                key={l.id}
+                variant={settings.language === l.id ? "primary" : "default"}
+                onClick={() => update({ language: l.id })}
+              >
+                {t(l.labelKey)}
               </Button>
             ))}
           </div>
         </section>
 
         <section>
-          <h3 className="label mb-2">Paneles</h3>
+          <h3 className="label mb-2">{t("settings.panels")}</h3>
           <div className="space-y-3">
             <label className="flex items-center gap-3">
-              <span className="text-text-dim text-sm w-20">Opacidad</span>
+              <span className="text-text-dim text-sm w-20">{t("settings.opacity")}</span>
               <input
                 type="range"
                 min={0}
@@ -176,45 +223,30 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 {Math.round(settings.panelOpacity * 100)}%
               </span>
             </label>
-            <label className="flex items-center gap-3">
-              <span className="text-text-dim text-sm w-20">Desenfoque</span>
-              <input
-                type="range"
-                min={0}
-                max={20}
-                step={1}
-                value={settings.panelBlur}
-                onChange={(e) => update({ panelBlur: Number(e.target.value) })}
-                className="flex-1 accent-[rgb(var(--sb-primary))]"
-              />
-              <span className="text-text-dim text-sm w-10 text-right">
-                {settings.panelBlur}px
-              </span>
-            </label>
           </div>
         </section>
 
         <section className="grid grid-cols-2 gap-3">
           <Toggle
-            label="Scanlines"
+            label={t("settings.scanlines")}
             checked={settings.scanlines}
             onChange={(v) => update({ scanlines: v })}
           />
-          <Toggle label="Glow" checked={settings.glow} onChange={(v) => update({ glow: v })} />
+          <Toggle label={t("settings.glow")} checked={settings.glow} onChange={(v) => update({ glow: v })} />
           <Toggle
-            label="Flicker"
+            label={t("settings.flicker")}
             checked={settings.flicker}
             onChange={(v) => update({ flicker: v })}
           />
           <Toggle
-            label="Splash al iniciar"
+            label={t("settings.splashOnStart")}
             checked={settings.showSplash}
             onChange={(v) => update({ showSplash: v })}
           />
         </section>
 
         <section>
-          <h3 className="label mb-2">Fondo</h3>
+          <h3 className="label mb-2">{t("settings.background")}</h3>
           <div className="flex gap-2 mb-2">
             <Button
               variant={settings.background.type === "solid" ? "primary" : "default"}
@@ -223,7 +255,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 update({ background: { type: "solid", value: "" } });
               }}
             >
-              Sólido
+              {t("settings.solid")}
             </Button>
             <Button
               variant={settings.background.type === "gradient" ? "primary" : "default"}
@@ -234,13 +266,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 });
               }}
             >
-              Gradiente
+              {t("settings.gradient")}
             </Button>
             <Button
               variant={settings.background.type === "image" ? "primary" : "default"}
               onClick={() => fileRef.current?.click()}
             >
-              Imagen
+              {t("settings.image")}
             </Button>
             <input
               ref={fileRef}
@@ -276,7 +308,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         </section>
 
         <section className="grid grid-cols-2 gap-3">
-          <Field label="Auto-bloqueo (min, 0=off)">
+          <Field label={t("settings.autoLock")}>
             <Input
               type="number"
               min={0}
@@ -284,7 +316,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               onChange={(e) => update({ autoLockMinutes: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Limpiar portapapeles (seg)">
+          <Field label={t("settings.clipboardClear")}>
             <Input
               type="number"
               min={0}
@@ -294,7 +326,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               }
             />
           </Field>
-          <Field label="Dither del zorro (1-4)">
+          <Field label={t("settings.dither")}>
             <Input
               type="number"
               min={1}
@@ -307,7 +339,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
         <div className="flex justify-end">
           <Button variant="danger" onClick={reset}>
-            Restablecer
+            {t("settings.reset")}
           </Button>
         </div>
       </div>

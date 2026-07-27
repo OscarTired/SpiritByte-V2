@@ -31,7 +31,7 @@ export function applyTheme(settings: Settings) {
   root.dataset.font = settings.font;
 
   root.style.setProperty("--sb-panel-opacity", String(settings.panelOpacity));
-  root.style.setProperty("--sb-panel-blur", `${settings.panelBlur}px`);
+  root.style.setProperty("--sb-font-size", `${settings.fontSize}px`);
 
   // Background layer applied to <body>.
   const body = document.body;

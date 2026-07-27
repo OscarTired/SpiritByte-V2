@@ -62,7 +62,7 @@
     background-color: rgb(var(--sb-bg));
     color: rgb(var(--sb-text));
     font-family: "VT323", ui-monospace, monospace;
-    font-size: 18px;
+    font-size: var(--sb-font-size, 18px);
     -webkit-font-smoothing: none;
     font-smooth: never;
     overflow: hidden;
@@ -72,30 +72,30 @@
   /* Font modes driven by data-font on <html>. */
   html[data-font="pixel"] body {
     font-family: "Press Start 2P", monospace;
-    font-size: 12px;
+    font-size: calc(var(--sb-font-size, 18px) * 0.67);
   }
   html[data-font="mono"] body {
     font-family: "VT323", monospace;
   }
   html[data-font="geist-square"] body {
     font-family: "GeistPixelSquare", monospace;
-    font-size: 14px;
+    font-size: calc(var(--sb-font-size, 18px) * 0.78);
   }
   html[data-font="geist-grid"] body {
     font-family: "GeistPixelGrid", monospace;
-    font-size: 14px;
+    font-size: calc(var(--sb-font-size, 18px) * 0.78);
   }
   html[data-font="geist-circle"] body {
     font-family: "GeistPixelCircle", monospace;
-    font-size: 14px;
+    font-size: calc(var(--sb-font-size, 18px) * 0.78);
   }
   html[data-font="geist-triangle"] body {
     font-family: "GeistPixelTriangle", monospace;
-    font-size: 14px;
+    font-size: calc(var(--sb-font-size, 18px) * 0.78);
   }
   html[data-font="geist-line"] body {
     font-family: "GeistPixelLine", monospace;
-    font-size: 14px;
+    font-size: calc(var(--sb-font-size, 18px) * 0.78);
   }
 
   /* Default (mixed): headings/buttons use Press Start 2P, body uses VT323 */
@@ -167,22 +167,22 @@
   .panel {
     background: rgb(var(--sb-surface) / var(--sb-panel-opacity, 1));
     border: 2px solid rgb(var(--sb-border));
-    backdrop-filter: blur(var(--sb-panel-blur, 0px));
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-pixel text-[11px] uppercase tracking-wider transition-all duration-75 select-none;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-pixel uppercase tracking-wider transition-all duration-75 select-none;
+    font-size: 0.61em;
     border: 2px solid rgb(var(--sb-border));
     background: rgb(var(--sb-surface-2));
     color: rgb(var(--sb-text));
   }
   html[data-font="mono"] .btn {
     font-family: "VT323", monospace;
-    font-size: 18px;
+    font-size: 1em;
   }
   html[data-font^="geist-"] .btn {
     font-family: inherit;
-    font-size: 14px;
+    font-size: 0.82em;
   }
   .btn:hover:not(:disabled) {
     border-color: rgb(var(--sb-primary));
@@ -211,15 +211,24 @@
     border: 2px solid rgb(var(--sb-border));
     color: rgb(var(--sb-text));
     font-family: "VT323", monospace;
-    font-size: 18px;
+    font-size: 1em;
   }
   .field:focus {
     border-color: rgb(var(--sb-primary));
   }
 
   .label {
-    @apply block mb-1 font-pixel text-[9px] uppercase tracking-wider;
+    @apply block mb-1 font-pixel uppercase tracking-wider;
+    font-size: 0.5em;
     color: rgb(var(--sb-text-dim));
+  }
+  html[data-font="mono"] .label {
+    font-family: "VT323", monospace;
+    font-size: 0.82em;
+  }
+  html[data-font^="geist-"] .label {
+    font-family: inherit;
+    font-size: 0.72em;
   }
 }
 

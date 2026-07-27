@@ -28,7 +28,7 @@ export function Toggle({ checked, onChange, label, className }: ToggleProps) {
         />
       </span>
       {label && (
-        <span className="font-pixel text-[9px] uppercase tracking-wider text-text">
+        <span className="font-pixel text-xs uppercase tracking-wider text-text">
           {label}
         </span>
       )}

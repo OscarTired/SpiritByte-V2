@@ -34,7 +34,7 @@ export function Modal({ open, onClose, title, children, footer, width = 520 }: M
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b-2 border-border px-4 py-3 bg-surface-2">
-          <h2 className="font-pixel text-[12px] text-primary glow-text uppercase tracking-wider">
+          <h2 className="font-pixel text-xs text-primary glow-text uppercase tracking-wider">
             {title}
           </h2>
           <Button variant="ghost" className="px-2 py-1" onClick={onClose}>

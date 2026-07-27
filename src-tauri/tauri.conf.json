@@ -45,6 +45,17 @@
     ],
     "category": "Utility",
     "shortDescription": "Local retro password manager",
-    "longDescription": "SpiritByte is a secure, local-first, fully customizable retro password manager built with Tauri + Rust."
+    "longDescription": "SpiritByte is a secure, local-first, fully customizable retro password manager built with Tauri + Rust.",
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/installer-header.bmp",
+        "sidebarImage": "icons/installer-sidebar.bmp"
+      },
+      "wix": {
+        "bannerPath": "icons/wix-banner.bmp",
+        "dialogImagePath": "icons/wix-dialog.bmp"
+      }
+    }
   }
 }

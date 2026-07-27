@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dices, Eye, EyeOff } from "lucide-react";
 import type { Entry, Folder } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea, Field } from "@/components/ui/Input";
@@ -44,6 +45,7 @@ export function EntryEditor({
   const [draft, setDraft] = useState<Entry>(blankEntry(defaultFolderId));
   const [show, setShow] = useState(false);
   const [genOpen, setGenOpen] = useState(false);
+  const t = useI18n((s) => s.t);
 
   useEffect(() => {
     if (open) {
@@ -66,18 +68,18 @@ export function EntryEditor({
     <Modal
       open={open}
       onClose={onClose}
-      title={entry ? "Editar entrada" : "Nueva entrada"}
+      title={entry ? t("editor.editEntry") : t("editor.newEntry")}
       footer={
         <>
-          <Button onClick={onClose}>Cancelar</Button>
+          <Button onClick={onClose}>{t("vault.cancel")}</Button>
           <Button variant="primary" onClick={save} disabled={!draft.title.trim()}>
-            Guardar
+            {t("vault.save")}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
-        <Field label="Título">
+        <Field label={t("editor.title")}>
           <Input
             value={draft.title}
             autoFocus
@@ -85,13 +87,13 @@ export function EntryEditor({
             placeholder="GitHub, Gmail, ..."
           />
         </Field>
-        <Field label="Usuario / Email">
+        <Field label={t("editor.usernameEmail")}>
           <Input
             value={draft.username}
             onChange={(e) => field("username", e.target.value)}
           />
         </Field>
-        <Field label="Contraseña">
+        <Field label={t("editor.password")}>
           <div className="relative">
             <Input
               type={show ? "text" : "password"}
@@ -111,7 +113,7 @@ export function EntryEditor({
                 type="button"
                 className="text-text-dim hover:text-primary"
                 onClick={() => setGenOpen((v) => !v)}
-                title="Generar"
+                title={t("editor.generate")}
               >
                 <Dices size={18} />
               </button>
@@ -131,20 +133,20 @@ export function EntryEditor({
           </div>
         )}
 
-        <Field label="URL">
+        <Field label={t("editor.url")}>
           <Input
             value={draft.url}
             onChange={(e) => field("url", e.target.value)}
             placeholder="https://"
           />
         </Field>
-        <Field label="Carpeta">
+        <Field label={t("editor.folder")}>
           <select
             className="field"
             value={draft.folderId ?? ""}
             onChange={(e) => field("folderId", e.target.value || null)}
           >
-            <option value="">Sin carpeta</option>
+            <option value="">{t("editor.noFolder")}</option>
             {folders.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name}
@@ -152,7 +154,7 @@ export function EntryEditor({
             ))}
           </select>
         </Field>
-        <Field label="Notas">
+        <Field label={t("editor.notes")}>
           <Textarea
             value={draft.notes}
             onChange={(e) => field("notes", e.target.value)}

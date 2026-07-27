@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff, KeyRound, LifeBuoy, Lock } from "lucide-react";
 import { useVault } from "@/store/useVault";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
 import { Input, Field } from "@/components/ui/Input";
 import { StrengthMeter } from "@/components/StrengthMeter";
@@ -10,6 +11,7 @@ type Mode = "password" | "recovery";
 export function Unlock() {
   const unlock = useVault((s) => s.unlock);
   const recoverAndReset = useVault((s) => s.recoverAndReset);
+  const t = useI18n((s) => s.t);
 
   const [mode, setMode] = useState<Mode>("password");
   const [password, setPassword] = useState("");
@@ -28,7 +30,7 @@ export function Unlock() {
     try {
       await unlock(password);
     } catch {
-      setError("Contraseña incorrecta.");
+      setError(t("unlock.errWrongPassword"));
     } finally {
       setBusy(false);
     }
@@ -37,22 +39,22 @@ export function Unlock() {
   async function handleRecover() {
     setError(null);
     if (phrase.trim().split(/\s+/).length !== 12) {
-      setError("La frase de recuperación debe tener 12 palabras.");
+      setError(t("unlock.errPhraseLength"));
       return;
     }
     if (newPw.length < 8) {
-      setError("La nueva contraseña debe tener al menos 8 caracteres.");
+      setError(t("unlock.errNewPasswordShort"));
       return;
     }
     if (newPw !== newPw2) {
-      setError("Las contraseñas no coinciden.");
+      setError(t("unlock.errPasswordMismatch"));
       return;
     }
     setBusy(true);
     try {
       await recoverAndReset(phrase, newPw);
     } catch {
-      setError("Frase de recuperación inválida.");
+      setError(t("unlock.errInvalidPhrase"));
     } finally {
       setBusy(false);
     }
@@ -66,14 +68,14 @@ export function Unlock() {
           <div>
             <h1 className="font-pixel text-base text-primary glow-text">SPIRITBYTE</h1>
             <p className="text-term text-text-dim">
-              {mode === "password" ? "Bóveda bloqueada" : "Recuperar acceso"}
+              {mode === "password" ? t("unlock.locked") : t("unlock.recover")}
             </p>
           </div>
         </div>
 
         {mode === "password" ? (
           <div className="space-y-4">
-            <Field label="Contraseña maestra">
+            <Field label={t("unlock.masterPassword")}>
               <div className="relative">
                 <Input
                   type={show ? "text" : "password"}
@@ -100,7 +102,7 @@ export function Unlock() {
               onClick={handleUnlock}
             >
               <KeyRound size={16} />
-              {busy ? "Descifrando..." : "Desbloquear"}
+              {busy ? t("unlock.decrypting") : t("unlock.unlock")}
             </Button>
             <button
               className="w-full text-center text-term text-text-dim hover:text-primary"
@@ -109,7 +111,7 @@ export function Unlock() {
                 setError(null);
               }}
             >
-              ¿Olvidaste tu contraseña? Usar frase de recuperación
+              {t("unlock.forgotPassword")}
             </button>
           </div>
         ) : (
@@ -117,10 +119,10 @@ export function Unlock() {
             <div className="flex items-start gap-2 border-2 border-border bg-bg p-3">
               <LifeBuoy className="text-accent shrink-0" size={18} />
               <p className="text-term text-text-dim">
-                Introduce tus 12 palabras y define una nueva contraseña maestra.
+                {t("unlock.recoveryIntro")}
               </p>
             </div>
-            <Field label="Frase de recuperación (12 palabras)">
+            <Field label={t("unlock.recoveryPhrase")}>
               <textarea
                 className="field resize-none h-20"
                 value={phrase}
@@ -128,7 +130,7 @@ export function Unlock() {
                 placeholder="palabra1 palabra2 ..."
               />
             </Field>
-            <Field label="Nueva contraseña maestra">
+            <Field label={t("unlock.newPassword")}>
               <Input
                 type="password"
                 value={newPw}
@@ -136,7 +138,7 @@ export function Unlock() {
               />
               <StrengthMeter password={newPw} />
             </Field>
-            <Field label="Confirmar nueva contraseña">
+            <Field label={t("unlock.confirmNewPassword")}>
               <Input
                 type="password"
                 value={newPw2}
@@ -152,7 +154,7 @@ export function Unlock() {
                   setError(null);
                 }}
               >
-                Volver
+                {t("unlock.back")}
               </Button>
               <Button
                 variant="primary"
@@ -160,7 +162,7 @@ export function Unlock() {
                 disabled={busy}
                 onClick={handleRecover}
               >
-                {busy ? "Recuperando..." : "Recuperar"}
+                {busy ? t("unlock.recovering") : t("unlock.recover")}
               </Button>
             </div>
           </div>

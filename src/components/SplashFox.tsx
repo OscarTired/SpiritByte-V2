@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "@/store/useSettings";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * Boot splash: rasterizes fox-byte.svg as a WIREFRAME (fill:none, stroke only),
@@ -21,12 +22,12 @@ const BAYER_8 = [
 ];
 
 const BOOT_LINES = [
-  "SPIRITBYTE BIOS v0.1.0",
-  "MEM CHECK ............ OK",
-  "ARGON2ID CORE ........ OK",
-  "XCHACHA20-POLY1305 ... OK",
-  "ENTROPY POOL ......... OK",
-  "MOUNTING VAULT FS .... OK",
+  "SPIRITBYTE SYSTEM v0.1.0",
+  "SECURITY CORE ........ READY",
+  "ENCRYPTION LAYER ..... ACTIVE",
+  "ZERO-KNOWLEDGE ....... VERIFIED",
+  "SECURE STORAGE ....... MOUNTED",
+  "VAULT SHIELD ......... ENGAGED",
   "WIREFRAME FOX ........ ONLINE",
 ];
 
@@ -43,6 +44,7 @@ interface SplashFoxProps {
 export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { settings } = useSettings();
+  const t = useI18n((s) => s.t);
   const [bootIndex, setBootIndex] = useState(0);
   const [fading, setFading] = useState(false);
 
@@ -112,8 +114,10 @@ export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
       }
     }
 
-    function ditherFrame(img: HTMLImageElement | null, reveal: number) {
-      if (!offCtx || !ctx) return;
+    // The source pixels are static across frames, so rasterize the wireframe
+    // and read its pixels a single time, then reuse them every frame.
+    function rasterizeSource(img: HTMLImageElement | null): Uint8ClampedArray | null {
+      if (!offCtx) return null;
       offCtx.clearRect(0, 0, W, H);
       if (img) {
         // Fit image preserving aspect.
@@ -121,7 +125,11 @@ export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
         const size = Math.min(W, H) - pad * 2;
         offCtx.drawImage(img, pad, pad, size, size);
       }
-      const src = offCtx.getImageData(0, 0, W, H).data;
+      return offCtx.getImageData(0, 0, W, H).data;
+    }
+
+    function ditherFrame(src: Uint8ClampedArray, reveal: number) {
+      if (!ctx) return;
 
       ctx.clearRect(0, 0, W, H);
       const revealY = reveal * H;
@@ -156,9 +164,11 @@ export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
     const start = performance.now();
     buildWireframeImage().then((img) => {
       if (cancelled) return;
+      const src = rasterizeSource(img);
+      if (!src) return;
       const animate = (t: number) => {
         const reveal = Math.min(1, (t - start) / (duration * 0.7));
-        ditherFrame(img, reveal);
+        ditherFrame(src, reveal);
         if (reveal < 1 && !cancelled) {
           raf = requestAnimationFrame(animate);
         }
@@ -186,9 +196,9 @@ export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
       <h1 className="font-pixel text-primary text-shadow-glow text-xl mt-2 tracking-widest">
         SPIRITBYTE
       </h1>
-      <p className="text-text-dim text-term mt-1">WIREFRAME FOX // SECURE VAULT</p>
+      <p className="text-text-dim text-term mt-1">{t("splash.tagline")}</p>
 
-      <div className="mt-6 h-32 w-[420px] overflow-hidden font-mono text-term text-success/90">
+      <div className="mt-6 h-40 w-[420px] overflow-y-auto font-mono text-term text-success/90">
         {BOOT_LINES.slice(0, bootIndex).map((line) => (
           <div key={line} className="leading-tight">
             <span className="text-text-dim">&gt;</span> {line}

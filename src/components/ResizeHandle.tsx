@@ -16,6 +16,15 @@ export function ResizeHandle({ width, min, max, onResize }: ResizeHandleProps) {
   const startX = useRef(0);
   const startWidth = useRef(0);
 
+  // Keep latest props in refs so the listeners (attached once) always read
+  // fresh values without forcing the effect to re-run / re-bind on every change.
+  const minRef = useRef(min);
+  const maxRef = useRef(max);
+  const onResizeRef = useRef(onResize);
+  minRef.current = min;
+  maxRef.current = max;
+  onResizeRef.current = onResize;
+
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -32,8 +41,11 @@ export function ResizeHandle({ width, min, max, onResize }: ResizeHandleProps) {
     function onMouseMove(e: MouseEvent) {
       if (!dragging.current) return;
       const delta = e.clientX - startX.current;
-      const next = Math.max(min, Math.min(max, startWidth.current + delta));
-      onResize(next);
+      const next = Math.max(
+        minRef.current,
+        Math.min(maxRef.current, startWidth.current + delta),
+      );
+      onResizeRef.current(next);
     }
     function onMouseUp() {
       if (!dragging.current) return;
@@ -47,7 +59,7 @@ export function ResizeHandle({ width, min, max, onResize }: ResizeHandleProps) {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [min, max, onResize]);
+  }, []);
 
   return (
     <div

@@ -8,6 +8,7 @@ import {
   mergeSettings,
   type Settings,
 } from "@/theme/settings";
+import { useI18n } from "@/lib/i18n";
 
 const LS_KEY = "spiritbyte.settings";
 
@@ -46,11 +47,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
     }
     const settings = mergeSettings(raw);
     applyTheme(settings);
+    useI18n.getState().setLang(settings.language);
     set({ settings, loaded: true });
   },
   update: (patch) => {
     const settings = mergeSettings({ ...get().settings, ...patch });
     applyTheme(settings);
+    if (patch.language) useI18n.getState().setLang(patch.language);
     set({ settings });
     void persist(settings);
   },
@@ -61,6 +64,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
   reset: () => {
     applyTheme(DEFAULT_SETTINGS);
+    useI18n.getState().setLang(DEFAULT_SETTINGS.language);
     set({ settings: DEFAULT_SETTINGS });
     void persist(DEFAULT_SETTINGS);
   },

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import type { GenOptions } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { StrengthMeter } from "@/components/StrengthMeter";
@@ -23,6 +24,7 @@ interface Props {
 
 export function GeneratorPanel({ onUse }: Props) {
   const clipboardTtl = useSettings((s) => s.settings.clipboardClearSeconds);
+  const t = useI18n((s) => s.t);
   const [opts, setOpts] = useState<GenOptions>(DEFAULTS);
   const [value, setValue] = useState("");
   const [copied, setCopied] = useState(false);
@@ -65,7 +67,7 @@ export function GeneratorPanel({ onUse }: Props) {
 
       <div>
         <div className="flex justify-between label">
-          <span>Longitud</span>
+          <span>{t("generator.length")}</span>
           <span className="text-primary">{opts.length}</span>
         </div>
         <input
@@ -84,7 +86,7 @@ export function GeneratorPanel({ onUse }: Props) {
         <Toggle label="0-9" checked={opts.digits} onChange={(v) => set("digits", v)} />
         <Toggle label="!@#$" checked={opts.symbols} onChange={(v) => set("symbols", v)} />
         <Toggle
-          label="Sin ambiguos"
+          label={t("generator.noAmbiguous")}
           checked={opts.avoidAmbiguous}
           onChange={(v) => set("avoidAmbiguous", v)}
           className="col-span-2"
@@ -93,7 +95,7 @@ export function GeneratorPanel({ onUse }: Props) {
 
       {onUse && (
         <Button variant="primary" className="w-full" onClick={() => onUse(value)}>
-          Usar esta contraseña
+          {t("generator.usePassword")}
         </Button>
       )}
     </div>

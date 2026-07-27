@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
   Check,
   Copy,
@@ -34,8 +34,10 @@ import {
   Plane,
   Gift,
   type LucideIcon,
+  type LucideProps,
 } from "lucide-react";
 import { useVault } from "@/store/useVault";
+import { useI18n } from "@/lib/i18n";
 import type { Entry, Folder } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -48,6 +50,32 @@ import { useSettings } from "@/store/useSettings";
 import { uid, isTauri } from "@/lib/utils";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { openUrl } from "@tauri-apps/plugin-opener";
+
+function GithubIcon({ size = 24, ...props }: LucideProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.66 1.05-.79 1.65-.13.6-.13 1.23 0 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </svg>
+  );
+}
+
+const SOCIAL_LINKS = [
+  { url: "https://paypal.me/octacodec", icon: Heart, label: "PayPal" },
+  { url: "https://github.com/OscarTired", icon: GithubIcon, label: "GitHub" },
+  { url: "https://octa-dev.com/", icon: Globe, label: "Web" },
+] as const;
 
 const ALL = "__all__";
 const FAV = "__fav__";
@@ -87,22 +115,21 @@ function folderIconComponent(iconId?: string | null): LucideIcon {
 }
 
 export function VaultApp() {
-  const {
-    entries,
-    folders,
-    query,
-    setQuery,
-    selectedFolderId,
-    selectFolder,
-    selectedEntryId,
-    selectEntry,
-    saveEntry,
-    deleteEntry,
-    saveFolder,
-    deleteFolder,
-    lock,
-  } = useVault();
+  const entries = useVault((s) => s.entries);
+  const folders = useVault((s) => s.folders);
+  const query = useVault((s) => s.query);
+  const setQuery = useVault((s) => s.setQuery);
+  const selectedFolderId = useVault((s) => s.selectedFolderId);
+  const selectFolder = useVault((s) => s.selectFolder);
+  const selectedEntryId = useVault((s) => s.selectedEntryId);
+  const selectEntry = useVault((s) => s.selectEntry);
+  const saveEntry = useVault((s) => s.saveEntry);
+  const deleteEntry = useVault((s) => s.deleteEntry);
+  const saveFolder = useVault((s) => s.saveFolder);
+  const deleteFolder = useVault((s) => s.deleteFolder);
+  const lock = useVault((s) => s.lock);
   const clipboardTtl = useSettings((s) => s.settings.clipboardClearSeconds);
+  const t = useI18n((s) => s.t);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
@@ -151,7 +178,21 @@ export function VaultApp() {
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [entries, query, activeFolder]);
 
-  const selected = entries.find((e) => e.id === selectedEntryId) ?? null;
+  // Counts computed in a single pass instead of re-filtering per folder on every render.
+  const { favCount, folderCounts } = useMemo(() => {
+    const counts = new Map<string, number>();
+    let fav = 0;
+    for (const e of entries) {
+      if (e.favorite) fav++;
+      if (e.folderId) counts.set(e.folderId, (counts.get(e.folderId) ?? 0) + 1);
+    }
+    return { favCount: fav, folderCounts: counts };
+  }, [entries]);
+
+  const selected = useMemo(
+    () => entries.find((e) => e.id === selectedEntryId) ?? null,
+    [entries, selectedEntryId],
+  );
 
   async function copyField(field: string, value: string) {
     if (!value) return;
@@ -214,7 +255,7 @@ export function VaultApp() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="relative flex h-full">
       {/* Sidebar */}
       <aside
         className="shrink-0 panel border-r-2 border-t-0 border-l-0 border-b-0 flex flex-col"
@@ -222,26 +263,26 @@ export function VaultApp() {
       >
         <div className="px-3 py-3 border-b-2 border-border flex items-center gap-2">
           <KeySquare className="text-primary" size={18} />
-          <span className="font-pixel text-[11px] text-primary glow-text">SPIRITBYTE</span>
+          <span className="font-pixel text-xs text-primary glow-text">SPIRITBYTE</span>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           <FolderItem
             active={activeFolder === ALL}
             icon={<KeySquare size={15} />}
-            label="Todas"
+            label={t("vault.all")}
             count={entries.length}
             onClick={() => selectFolder(null)}
           />
           <FolderItem
             active={activeFolder === FAV}
             icon={<Star size={15} />}
-            label="Favoritas"
-            count={entries.filter((e) => e.favorite).length}
+            label={t("vault.favorites")}
+            count={favCount}
             onClick={() => selectFolder(FAV)}
           />
           <div className="flex items-center justify-between px-2 pt-3 pb-1">
-            <span className="label !mb-0">Carpetas</span>
+            <span className="label !mb-0">{t("vault.folders")}</span>
             <button
               className="text-text-dim hover:text-primary"
               onClick={openNewFolder}
@@ -257,7 +298,7 @@ export function VaultApp() {
                 active={activeFolder === f.id}
                 icon={<Icon size={15} style={f.color ? { color: f.color } : undefined} />}
                 label={f.name}
-                count={entries.filter((e) => e.folderId === f.id).length}
+                count={folderCounts.get(f.id) ?? 0}
                 onClick={() => selectFolder(f.id)}
                 onEdit={() => openEditFolder(f)}
                 onDelete={() => void deleteFolder(f.id)}
@@ -303,7 +344,7 @@ export function VaultApp() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar..."
+              placeholder={t("vault.search")}
               className="pl-7 py-1"
             />
           </div>
@@ -313,7 +354,7 @@ export function VaultApp() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 ? (
-            <p className="p-4 text-term text-text-dim text-center">Sin entradas.</p>
+            <p className="p-4 text-term text-text-dim text-center">{t("vault.noEntries")}</p>
           ) : (
             filtered.map((e) => (
               <button
@@ -328,10 +369,10 @@ export function VaultApp() {
                 <div className="flex items-center gap-2">
                   {e.favorite && <Star size={12} className="text-accent shrink-0" />}
                   <span className="text-term text-text truncate flex-1">
-                    {e.title || "(sin título)"}
+                    {e.title || t("vault.untitled")}
                   </span>
                 </div>
-                <span className="text-term text-text-dim text-sm truncate block">
+                <span className="text-sm text-text-dim truncate block">
                   {e.username}
                 </span>
               </button>
@@ -364,10 +405,23 @@ export function VaultApp() {
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-text-dim">
             <KeySquare size={48} className="opacity-40 mb-3" />
-            <p className="text-term">Selecciona o crea una entrada.</p>
+            <p className="text-term">{t("vault.selectEntry")}</p>
           </div>
         )}
       </main>
+
+      <div className="absolute bottom-3 right-3 flex gap-1">
+        {SOCIAL_LINKS.map(({ url, icon: Icon, label }) => (
+          <button
+            key={label}
+            onClick={() => void openExternalUrl(url)}
+            title={label}
+            className="flex h-7 w-7 items-center justify-center text-text-dim/60 hover:text-primary transition-colors"
+          >
+            <Icon size={15} />
+          </button>
+        ))}
+      </div>
 
       <EntryEditor
         open={editorOpen}
@@ -380,7 +434,7 @@ export function VaultApp() {
         onSave={onSaveEntry}
       />
 
-      <Modal open={genOpen} onClose={() => setGenOpen(false)} title="Generador">
+      <Modal open={genOpen} onClose={() => setGenOpen(false)} title={t("vault.generator")}>
         <GeneratorPanel />
       </Modal>
 
@@ -389,12 +443,12 @@ export function VaultApp() {
       <Modal
         open={folderModal}
         onClose={() => setFolderModal(false)}
-        title={editingFolder ? "Editar carpeta" : "Nueva carpeta"}
+        title={editingFolder ? t("vault.editFolder") : t("vault.newFolder")}
         footer={
           <>
-            <Button onClick={() => setFolderModal(false)}>Cancelar</Button>
+            <Button onClick={() => setFolderModal(false)}>{t("vault.cancel")}</Button>
             <Button variant="primary" onClick={saveFolderModal}>
-              {editingFolder ? "Guardar" : "Crear"}
+              {editingFolder ? t("vault.save") : t("vault.create")}
             </Button>
           </>
         }
@@ -403,13 +457,13 @@ export function VaultApp() {
           <Input
             value={folderName}
             autoFocus
-            placeholder="Nombre de la carpeta"
+            placeholder={t("vault.folderName")}
             onChange={(e) => setFolderName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && saveFolderModal()}
           />
 
           <div>
-            <span className="label mb-2 block">Icono</span>
+            <span className="label mb-2 block">{t("vault.icon")}</span>
             <div className="grid grid-cols-5 gap-2">
               {FOLDER_ICONS.map(({ id, icon: Icon }) => (
                 <button
@@ -428,14 +482,14 @@ export function VaultApp() {
           </div>
 
           <div>
-            <span className="label mb-2 block">Color</span>
+            <span className="label mb-2 block">{t("vault.color")}</span>
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setFolderColor(null)}
-                className={`h-7 w-7 border-2 flex items-center justify-center text-[10px] ${
+                className={`h-7 w-7 border-2 flex items-center justify-center text-xs ${
                   folderColor === null ? "border-primary" : "border-border"
                 }`}
-                title="Sin color"
+                title={t("vault.noColor")}
               >
                 ✕
               </button>
@@ -457,7 +511,7 @@ export function VaultApp() {
   );
 }
 
-function FolderItem({
+const FolderItem = memo(function FolderItem({
   active,
   icon,
   label,
@@ -483,7 +537,7 @@ function FolderItem({
     >
       <span className="shrink-0">{icon}</span>
       <span className="text-term flex-1 truncate">{label}</span>
-      <span className="text-term text-text-dim text-sm">{count}</span>
+      <span className="text-sm text-text-dim">{count}</span>
       {onEdit && (
         <button
           className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-primary"
@@ -508,9 +562,9 @@ function FolderItem({
       )}
     </div>
   );
-}
+});
 
-function EntryDetail({
+const EntryDetail = memo(function EntryDetail({
   entry,
   copiedField,
   onCopy,
@@ -528,6 +582,7 @@ function EntryDetail({
   onOpenUrl: (url: string) => void;
 }) {
   const [revealed, setRevealed] = useState(false);
+  const t = useI18n((s) => s.t);
 
   return (
     <div className="max-w-2xl">
@@ -553,20 +608,20 @@ function EntryDetail({
 
       <div className="space-y-3">
         <DetailRow
-          label="Usuario"
+          label={t("entry.username")}
           value={entry.username}
           copied={copiedField === "username"}
           onCopy={() => onCopy("username", entry.username)}
         />
         <div className="panel p-3">
           <div className="flex items-center justify-between">
-            <span className="label !mb-0">Contraseña</span>
+            <span className="label !mb-0">{t("entry.password")}</span>
             <div className="flex gap-2">
               <button
                 className="text-text-dim hover:text-primary text-term"
                 onClick={() => setRevealed((v) => !v)}
               >
-                {revealed ? "Ocultar" : "Mostrar"}
+                {revealed ? t("entry.hide") : t("entry.show")}
               </button>
               <button
                 className="text-text-dim hover:text-primary"
@@ -585,7 +640,7 @@ function EntryDetail({
           </div>
         </div>
         <DetailRow
-          label="URL"
+          label={t("entry.url")}
           value={entry.url}
           copied={copiedField === "url"}
           onCopy={() => onCopy("url", entry.url)}
@@ -594,7 +649,7 @@ function EntryDetail({
         />
         {entry.notes && (
           <div className="panel p-3">
-            <span className="label">Notas</span>
+            <span className="label">{t("entry.notes")}</span>
             <p className="text-term text-text whitespace-pre-wrap break-words">
               {entry.notes}
             </p>
@@ -603,9 +658,9 @@ function EntryDetail({
       </div>
     </div>
   );
-}
+});
 
-function DetailRow({
+const DetailRow = memo(function DetailRow({
   label,
   value,
   copied,
@@ -652,4 +707,4 @@ function DetailRow({
       )}
     </div>
   );
-}
+});

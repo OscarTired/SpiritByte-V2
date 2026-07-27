@@ -22,7 +22,12 @@ export default {
         mono: ["'VT323'", "ui-monospace", "monospace"],
       },
       fontSize: {
-        term: ["1.25rem", { lineHeight: "1.3" }],
+        term: ["1em", { lineHeight: "1.3" }],
+        xs: ["0.72em", { lineHeight: "1.4" }],
+        sm: ["0.82em", { lineHeight: "1.25" }],
+        base: ["1em", { lineHeight: "1.5" }],
+        lg: ["1.12em", { lineHeight: "1.75" }],
+        xl: ["1.25em", { lineHeight: "1.75" }],
       },
       boxShadow: {
         glow: "0 0 8px rgb(var(--sb-primary) / 0.5), 0 0 2px rgb(var(--sb-primary) / 0.8)",
