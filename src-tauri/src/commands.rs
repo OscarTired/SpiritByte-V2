@@ -62,7 +62,9 @@ pub fn lock(state: State<AppState>) {
 #[tauri::command]
 pub fn change_master_password(state: State<AppState>, new_password: String) -> CmdResult<()> {
     let guard = state.session.lock().unwrap();
-    let session = guard.as_ref().ok_or_else(|| "vault is locked".to_string())?;
+    let session = guard
+        .as_ref()
+        .ok_or_else(|| "vault is locked".to_string())?;
     vault::change_password(&state.paths, &session.dek, &new_password).map_err(map)
 }
 
@@ -83,7 +85,9 @@ where
     F: FnOnce(&mut Session) -> Result<T, String>,
 {
     let mut guard = state.session.lock().unwrap();
-    let session = guard.as_mut().ok_or_else(|| "vault is locked".to_string())?;
+    let session = guard
+        .as_mut()
+        .ok_or_else(|| "vault is locked".to_string())?;
     f(session)
 }
 
@@ -105,7 +109,7 @@ pub fn get_vault(state: State<AppState>) -> CmdResult<VaultData> {
 /// Inserts or updates an entry, then persists the encrypted vault.
 #[tauri::command]
 pub fn upsert_entry(state: State<AppState>, entry: Entry) -> CmdResult<Entry> {
-    let result = with_session(&state, |s| {
+    with_persisted_session(&state, |s| {
         let stored = match s.data.entries.iter_mut().find(|e| e.id == entry.id) {
             Some(existing) => {
                 *existing = entry.clone();
@@ -117,37 +121,37 @@ pub fn upsert_entry(state: State<AppState>, entry: Entry) -> CmdResult<Entry> {
             }
         };
         Ok(stored)
-    })?;
-    persist(&state)?;
-    Ok(result)
+    })
 }
 
 #[tauri::command]
 pub fn delete_entry(state: State<AppState>, id: String) -> CmdResult<()> {
-    with_session(&state, |s| {
+    with_persisted_session(&state, |s| {
         s.data.entries.retain(|e| e.id != id);
         Ok(())
-    })?;
-    persist(&state)
+    })
 }
 
 #[tauri::command]
 pub fn upsert_folder(state: State<AppState>, folder: Folder) -> CmdResult<Folder> {
-    let result = with_session(&state, |s| {
+    with_persisted_session(&state, |s| {
         match s.data.folders.iter_mut().find(|f| f.id == folder.id) {
             Some(existing) => *existing = folder.clone(),
             None => s.data.folders.push(folder.clone()),
         }
         Ok(folder.clone())
-    })?;
-    persist(&state)?;
-    Ok(result)
+    })
 }
 
 #[tauri::command]
 pub fn delete_folder(state: State<AppState>, id: String) -> CmdResult<()> {
-    with_session(&state, |s| {
+    with_persisted_session(&state, |s| {
         s.data.folders.retain(|f| f.id != id);
+        for folder in &mut s.data.folders {
+            if folder.parent_id.as_deref() == Some(id.as_str()) {
+                folder.parent_id = None;
+            }
+        }
         // Orphaned entries fall back to "no folder".
         for entry in s.data.entries.iter_mut() {
             if entry.folder_id.as_deref() == Some(id.as_str()) {
@@ -155,14 +159,26 @@ pub fn delete_folder(state: State<AppState>, id: String) -> CmdResult<()> {
             }
         }
         Ok(())
-    })?;
-    persist(&state)
+    })
 }
 
-fn persist(state: &State<AppState>) -> CmdResult<()> {
-    let guard = state.session.lock().unwrap();
-    let session = guard.as_ref().ok_or_else(|| "vault is locked".to_string())?;
-    vault::write_data(&state.paths, session).map_err(map)
+fn with_persisted_session<T>(
+    state: &State<AppState>,
+    f: impl FnOnce(&mut Session) -> CmdResult<T>,
+) -> CmdResult<T> {
+    with_session(state, |session| {
+        let previous = session.data.clone();
+        match f(session).and_then(|result| {
+            vault::write_data(&state.paths, session).map_err(map)?;
+            Ok(result)
+        }) {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                session.data = previous;
+                Err(error)
+            }
+        }
+    })
 }
 
 // ----- Utilities -----
@@ -231,4 +247,63 @@ pub fn save_settings(state: State<AppState>, settings: serde_json::Value) -> Cmd
     }
     let json = serde_json::to_vec_pretty(&settings).map_err(map)?;
     std::fs::write(path, json).map_err(map)
+}
+
+// Password derivation and encryption run off the UI thread.
+#[tauri::command]
+pub async fn export_backup(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    password: String,
+    selection: Option<crate::backup::ExportSelection>,
+) -> CmdResult<bool> {
+    use tauri_plugin_dialog::DialogExt;
+    let password = zeroize::Zeroizing::new(password);
+    let data = with_session(&state, |s| Ok(s.data.clone()))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let data = crate::backup::select(&data, selection.as_ref()).map_err(map)?;
+        let contents = crate::backup::export(&data, &password).map_err(map)?;
+        let selected = app
+            .dialog()
+            .file()
+            .add_filter("SpiritByte", &["spiritbyte"])
+            .set_file_name(format!("SpiritByte-{}.spiritbyte", uuid::Uuid::new_v4()))
+            .blocking_save_file();
+        let Some(selected) = selected else {
+            return Ok(false);
+        };
+        let path = selected.into_path().map_err(map)?;
+        if path.extension().and_then(|s| s.to_str()) != Some("spiritbyte") {
+            return Err("use the .spiritbyte extension".into());
+        }
+        crate::backup::save_new(&path, &contents).map_err(map)?;
+        Ok(true)
+    })
+    .await
+    .map_err(map)?
+}
+
+#[tauri::command]
+pub async fn import_backup(
+    state: State<'_, AppState>,
+    contents: String,
+    password: String,
+) -> CmdResult<()> {
+    with_session(&state, |_| Ok(()))?;
+    let password = zeroize::Zeroizing::new(password);
+    let imported = tauri::async_runtime::spawn_blocking(move || {
+        crate::backup::decrypt(&contents, &password).map_err(map)
+    })
+    .await
+    .map_err(map)??;
+    with_session(&state, |s| {
+        let candidate = Session {
+            dek: s.dek.clone(),
+            data: crate::backup::merge(&s.data, imported),
+        };
+        // Commit the in-memory state only after the encrypted atomic write succeeds.
+        vault::write_data(&state.paths, &candidate).map_err(map)?;
+        s.data = candidate.data;
+        Ok(())
+    })
 }

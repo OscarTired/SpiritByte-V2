@@ -42,7 +42,7 @@ export function EntryEditor({
   onClose,
   onSave,
 }: Props) {
-  const [draft, setDraft] = useState<Entry>(blankEntry(defaultFolderId));
+  const [draft, setDraft] = useState<Entry>(() => blankEntry(defaultFolderId));
   const [show, setShow] = useState(false);
   const [genOpen, setGenOpen] = useState(false);
   const t = useI18n((s) => s.t);

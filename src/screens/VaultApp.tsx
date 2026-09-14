@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   Check,
   Copy,
@@ -141,6 +141,11 @@ export function VaultApp() {
   const [folderIcon, setFolderIcon] = useState("folder");
   const [folderColor, setFolderColor] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    setCopiedField(null);
+    return () => clearTimeout(copyTimer.current);
+  }, [selectedEntryId]);
   const [sidebarWidth, setSidebarWidth] = useState(224);
   const [listWidth, setListWidth] = useState(288);
 
@@ -160,23 +165,17 @@ export function VaultApp() {
     }
   }, []);
 
+  const searchable = useMemo(() => [...entries]
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((entry) => ({ entry, text: [entry.title, entry.username, entry.url].map((v) => v.toLowerCase()) })), [entries]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return entries
-      .filter((e) => {
-        if (activeFolder === ALL) return true;
-        if (activeFolder === FAV) return e.favorite;
-        return e.folderId === activeFolder;
-      })
-      .filter(
-        (e) =>
-          !q ||
-          e.title.toLowerCase().includes(q) ||
-          e.username.toLowerCase().includes(q) ||
-          e.url.toLowerCase().includes(q),
-      )
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }, [entries, query, activeFolder]);
+    return searchable.filter(({ entry: e, text }) =>
+      (activeFolder === ALL || (activeFolder === FAV ? e.favorite : e.folderId === activeFolder)) &&
+      (!q || text.some((value) => value.includes(q)))
+    ).map(({ entry }) => entry);
+  }, [searchable, query, activeFolder]);
 
   // Counts computed in a single pass instead of re-filtering per folder on every render.
   const { favCount, folderCounts } = useMemo(() => {
@@ -196,9 +195,10 @@ export function VaultApp() {
 
   async function copyField(field: string, value: string) {
     if (!value) return;
-    await copyWithAutoClear(value, clipboardTtl);
+    if (!await copyWithAutoClear(value, clipboardTtl)) return;
+    clearTimeout(copyTimer.current);
     setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 1500);
+    copyTimer.current = setTimeout(() => setCopiedField(null), 1500);
   }
 
   function newEntry() {
@@ -357,25 +357,8 @@ export function VaultApp() {
             <p className="p-4 text-term text-text-dim text-center">{t("vault.noEntries")}</p>
           ) : (
             filtered.map((e) => (
-              <button
-                key={e.id}
-                onClick={() => selectEntry(e.id)}
-                className={`w-full text-left px-3 py-2 border-b border-border/50 transition-colors ${
-                  selectedEntryId === e.id
-                    ? "bg-primary/10 border-l-2 border-l-primary"
-                    : "hover:bg-surface-2"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {e.favorite && <Star size={12} className="text-accent shrink-0" />}
-                  <span className="text-term text-text truncate flex-1">
-                    {e.title || t("vault.untitled")}
-                  </span>
-                </div>
-                <span className="text-sm text-text-dim truncate block">
-                  {e.username}
-                </span>
-              </button>
+              <EntryListItem key={e.id} entry={e} selected={selectedEntryId === e.id}
+                onSelect={selectEntry} untitled={t("vault.untitled")} />
             ))
           )}
         </div>
@@ -394,6 +377,7 @@ export function VaultApp() {
       >
         {selected ? (
           <EntryDetail
+            key={selected.id}
             entry={selected}
             copiedField={copiedField}
             onCopy={copyField}
@@ -438,7 +422,7 @@ export function VaultApp() {
         <GeneratorPanel />
       </Modal>
 
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen && <SettingsPanel open onClose={() => setSettingsOpen(false)} />}
 
       <Modal
         open={folderModal}
@@ -510,6 +494,21 @@ export function VaultApp() {
     </div>
   );
 }
+
+const EntryListItem = memo(function EntryListItem({ entry, selected, onSelect, untitled }: {
+  entry: Entry; selected: boolean; onSelect: (id: string) => void; untitled: string;
+}) {
+  return <button onClick={() => onSelect(entry.id)}
+    className={`w-full text-left px-3 py-2 border-b border-border/50 transition-colors ${
+      selected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-surface-2"
+    }`}>
+    <div className="flex items-center gap-2">
+      {entry.favorite && <Star size={12} className="text-accent shrink-0" />}
+      <span className="text-term text-text truncate flex-1">{entry.title || untitled}</span>
+    </div>
+    <span className="text-sm text-text-dim truncate block">{entry.username}</span>
+  </button>;
+});
 
 const FolderItem = memo(function FolderItem({
   active,
@@ -649,8 +648,15 @@ const EntryDetail = memo(function EntryDetail({
         />
         {entry.notes && (
           <div className="panel p-3">
-            <span className="label">{t("entry.notes")}</span>
-            <p className="text-term text-text whitespace-pre-wrap break-words">
+            <div className="flex items-center justify-between gap-3">
+              <span className="label">{t("entry.notes")}</span>
+              <button type="button" className="text-text-dim hover:text-primary"
+                title={t("entry.copyNotes")} aria-label={t("entry.copyNotes")}
+                onClick={() => onCopy("notes", entry.notes)}>
+                {copiedField === "notes" ? <Check size={15} /> : <Copy size={15} />}
+              </button>
+            </div>
+            <p tabIndex={0} className="select-text text-term text-text whitespace-pre-wrap break-words">
               {entry.notes}
             </p>
           </div>

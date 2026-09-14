@@ -25,6 +25,11 @@ export interface VaultData {
   folders: Folder[];
 }
 
+export interface ExportSelection {
+  entryIds: string[];
+  folderIds: string[];
+}
+
 export interface VaultStatus {
   exists: boolean;
   unlocked: boolean;

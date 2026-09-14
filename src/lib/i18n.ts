@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Language } from "@/theme/settings";
 
 export type TranslationKey =
+  | "entry.copyNotes"
   // Splash
   | "splash.tagline"
   // VaultApp
@@ -80,6 +81,12 @@ export type TranslationKey =
   | "generator.length"
   | "generator.noAmbiguous"
   | "generator.usePassword"
+  // StrengthMeter
+  | "strength.veryWeak"
+  | "strength.weak"
+  | "strength.fair"
+  | "strength.strong"
+  | "strength.veryStrong"
   // SettingsPanel
   | "settings.title"
   | "settings.palettes"
@@ -115,7 +122,8 @@ export type TranslationKey =
 type TranslationDict = Record<TranslationKey, string>;
 
 const es: TranslationDict = {
-  "splash.tagline": "WIREFRAME FOX // SECURE VAULT",
+  "entry.copyNotes": "Copiar todas las notas",
+  "splash.tagline": "PHOSPHOR FOX // SECURE VAULT",
   "vault.all": "Todas",
   "vault.favorites": "Favoritas",
   "vault.folders": "Carpetas",
@@ -195,6 +203,11 @@ const es: TranslationDict = {
   "generator.length": "Longitud",
   "generator.noAmbiguous": "Sin ambiguos",
   "generator.usePassword": "Usar esta contraseña",
+  "strength.veryWeak": "Muy débil",
+  "strength.weak": "Débil",
+  "strength.fair": "Regular",
+  "strength.strong": "Fuerte",
+  "strength.veryStrong": "Muy fuerte",
   "settings.title": "Personalización",
   "settings.palettes": "Paletas",
   "settings.customColors": "Colores personalizados",
@@ -227,7 +240,8 @@ const es: TranslationDict = {
 };
 
 const en: TranslationDict = {
-  "splash.tagline": "WIREFRAME FOX // SECURE VAULT",
+  "entry.copyNotes": "Copy all notes",
+  "splash.tagline": "PHOSPHOR FOX // SECURE VAULT",
   "vault.all": "All",
   "vault.favorites": "Favorites",
   "vault.folders": "Folders",
@@ -307,6 +321,11 @@ const en: TranslationDict = {
   "generator.length": "Length",
   "generator.noAmbiguous": "No ambiguous",
   "generator.usePassword": "Use this password",
+  "strength.veryWeak": "Very weak",
+  "strength.weak": "Weak",
+  "strength.fair": "Fair",
+  "strength.strong": "Strong",
+  "strength.veryStrong": "Very strong",
   "settings.title": "Customization",
   "settings.palettes": "Palettes",
   "settings.customColors": "Custom colors",

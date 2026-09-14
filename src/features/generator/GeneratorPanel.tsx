@@ -44,7 +44,7 @@ export function GeneratorPanel({ onUse }: Props) {
   }
 
   async function copy() {
-    await copyWithAutoClear(value, clipboardTtl);
+    if (!await copyWithAutoClear(value, clipboardTtl)) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }

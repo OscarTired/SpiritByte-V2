@@ -1,5 +1,5 @@
+mod backup;
 mod commands;
-mod crypto;
 mod generator;
 mod state;
 mod vault;
@@ -13,6 +13,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let base = app
                 .path()
@@ -23,6 +24,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::export_backup,
+            commands::import_backup,
             commands::vault_status,
             commands::create_vault,
             commands::unlock,

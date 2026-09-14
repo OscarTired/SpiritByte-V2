@@ -35,6 +35,8 @@ interface VaultState {
   setError: (e: string | null) => void;
 }
 
+let sessionEpoch = 0;
+
 export const useVault = create<VaultState>((set, get) => ({
   screen: "boot",
   booted: false,
@@ -69,8 +71,9 @@ export const useVault = create<VaultState>((set, get) => ({
   },
 
   refresh: async () => {
+    const epoch = sessionEpoch;
     const data = await api.getVault();
-    set({ entries: data.entries, folders: data.folders });
+    if (epoch === sessionEpoch) set({ entries: data.entries, folders: data.folders });
   },
 
   createVault: async (password) => {
@@ -101,7 +104,9 @@ export const useVault = create<VaultState>((set, get) => ({
   },
 
   lock: async () => {
+    sessionEpoch++;
     await api.lock();
+    sessionEpoch++;
     set({
       screen: "locked",
       entries: [],
@@ -113,20 +118,28 @@ export const useVault = create<VaultState>((set, get) => ({
   },
 
   saveEntry: async (entry) => {
-    await api.upsertEntry(entry);
-    await get().refresh();
-    set({ selectedEntryId: entry.id });
+    const epoch = sessionEpoch;
+    const stored = await api.upsertEntry(entry);
+    if (epoch !== sessionEpoch) return;
+    set((s) => ({ entries: s.entries.some((e) => e.id === stored.id)
+      ? s.entries.map((e) => e.id === stored.id ? stored : e)
+      : [...s.entries, stored], selectedEntryId: stored.id }));
   },
 
   deleteEntry: async (id) => {
+    const epoch = sessionEpoch;
     await api.deleteEntry(id);
-    await get().refresh();
-    if (get().selectedEntryId === id) set({ selectedEntryId: null });
+    if (epoch !== sessionEpoch) return;
+    set((s) => ({ entries: s.entries.filter((e) => e.id !== id),
+      selectedEntryId: s.selectedEntryId === id ? null : s.selectedEntryId }));
   },
 
   saveFolder: async (folder) => {
-    await api.upsertFolder(folder);
-    await get().refresh();
+    const epoch = sessionEpoch;
+    const stored = await api.upsertFolder(folder);
+    if (epoch !== sessionEpoch) return;
+    set((s) => ({ folders: s.folders.some((f) => f.id === stored.id)
+      ? s.folders.map((f) => f.id === stored.id ? stored : f) : [...s.folders, stored] }));
   },
 
   deleteFolder: async (id) => {

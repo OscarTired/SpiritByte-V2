@@ -12,7 +12,7 @@ A secure, fully customizable password manager with a retro CRT/pixel aesthetic. 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-[Features](#features) &middot; [Security](#security-model) &middot; [Install](#installation) &middot; [Build](#building-from-source) &middot; [Architecture](#architecture)
+[Features](#features) &middot; [Backups](#encrypted-backups) &middot; [Performance](#performance) &middot; [Security](#security-model) &middot; [Install](#installation) &middot; [Build](#building-from-source) &middot; [Architecture](#architecture)
 
 </div>
 
@@ -61,6 +61,8 @@ A secure, fully customizable password manager with a retro CRT/pixel aesthetic. 
 - Entries with title, username, password, URL, and notes
 - Nested folders with custom icons and colors
 - Favorites, full-text search, and keyboard-driven workflow
+- Selectable notes with a one-click copy-all button
+- Password-protected encrypted vault import/export from Settings
 - Configurable password generator with entropy strength meter
 - Auto-lock on inactivity and automatic clipboard clearing
 
@@ -94,6 +96,24 @@ Recovery Phrase ──┘
 > [!WARNING]
 > If you lose **both** your master password **and** your 12-word recovery phrase, the vault is unrecoverable by design. There is no backdoor.
 
+## Encrypted backups
+
+Choose **All** to export the entire vault, or **Select** to choose folders and individual credentials. Checking a folder selects its contents and subfolders; uncheck any individual credentials to exclude them. Required parent folders, icons and colors are preserved automatically. Explicitly selected empty folders can also be exported. **Clear** resets the selection, and an empty selection cannot be exported.
+
+In **Settings > Import / Export vault**, choose a long, unique backup password (at least 12 characters), use the strength meter as guidance, confirm it, and export to a new `.spiritbyte` file using the native save dialog. The live character counter and matching-password indicator show when export is enabled; the strength estimate is advisory. Keep the password separately: the vault recovery phrase cannot unlock this backup. Existing files are never overwritten.
+
+To restore, create or unlock a destination vault, select the backup in Settings, enter its backup password, and choose **Import and add**. All entries (including notes, favorites, timestamps and icons), folders and parent relationships are preserved. Imported records receive fresh IDs, so existing records are retained; importing twice creates duplicates. Visual preferences, wallpapers, master credentials and recovery phrases are not included. The destination vault keeps its own credentials.
+
+Format v1 uses fixed Argon2id parameters (64 MiB, 3 iterations, 1 lane), a fresh random salt, and XChaCha20-Poly1305 authenticated encryption with a fresh nonce. No decrypted backup is written to disk. Imports are limited to 32 MiB and authenticated and structurally validated before merging. The encrypted vault is synced to a sibling temporary file and atomically replaced before the session is updated.
+
+## Performance
+
+- Search sorting and normalized text are cached until entries change, avoiding repeated sorting while typing or switching folders.
+- Entry and folder saves update the affected frontend records without fetching the entire vault again. Unchanged entry rows reuse their rendered output.
+- Password strength checks are debounced, and the inactivity timer tracks activity without recreating a timeout on every mouse movement.
+- The splash precomputes its shaded Bayer-dithered fox once, then reveals the cached artwork. Its vector facets, subtle phosphor glow and scan sweep follow the active palette; reduced-motion preferences skip the sweep.
+- Pending saves and refreshes cannot repopulate the frontend after locking. Vault writes use atomic replacement, and failed saves retain the previous data.
+
 ## Installation
 
 ### Pre-built binaries
@@ -105,6 +125,10 @@ Download the latest installer from the [Releases](https://github.com/OscarTired/
 | Windows | `.msi` (WiX) or `-setup.exe` (NSIS) |
 | macOS | `.dmg` |
 | Linux | `.deb` / `.AppImage` |
+
+### Updating on Windows
+
+For version 0.1.1, close SpiritByte and run the new installer using the same installer format as your current installation (MSI or NSIS EXE). Install over the existing version; there is no need to uninstall first. The application identifier and MSI upgrade code remain unchanged, and the vault stays in the existing app-data directory. The `src-tauri/target` directory contains build artifacts only and is regenerated when building.
 
 ### Building from source
 
@@ -131,8 +155,13 @@ pnpm tauri build
 
 ```bash
 cd src-tauri
-cargo test --lib
+cargo test --manifest-path ../../SpiritByte-Android/core/Cargo.toml
 ```
+
+The vault engine now lives in the sibling `SpiritByte-Android/core` library and is
+shared with the native Kotlin/Compose Android app. Keep both project directories
+side by side; `src-tauri/src/{crypto,vault,backup,generator}.rs` are compatibility
+re-exports. Make engine changes in `SpiritByte-Android/core/src`.
 
 ## Architecture
 
@@ -148,6 +177,7 @@ src/                       Frontend (React + TypeScript)
 src-tauri/src/             Backend (Rust)
   crypto.rs                Argon2id, XChaCha20-Poly1305, BIP39
   vault.rs                 Data model, on-disk format, operations
+  backup.rs                Encrypted portable backups, validation and additive restore
   generator.rs             Password generator + strength estimation
   state.rs                 Session state (DEK in memory)
   commands.rs              Tauri IPC commands exposed to frontend
@@ -170,7 +200,8 @@ src-tauri/src/             Backend (Rust)
 
 ## Roadmap
 
-- [ ] CSV import/export
+- [x] Password-protected encrypted vault import/export (`.spiritbyte`)
+- [x] Search, rendering, clipboard feedback and inactivity-timer improvements
 - [ ] Browser extension autofill
 
 ## Contributing

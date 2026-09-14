@@ -1,3 +1,4 @@
+import { BackupPanel } from "./BackupPanel";
 import { useRef, useCallback } from "react";
 import { useSettings } from "@/store/useSettings";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
@@ -112,6 +113,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <Modal open={open} onClose={onClose} title={t("settings.title")} width={620}>
       <div className="space-y-6">
+        <BackupPanel />
         <section>
           <h3 className="label mb-2">{t("settings.palettes")}</h3>
           <div className="grid grid-cols-5 gap-2">

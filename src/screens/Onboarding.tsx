@@ -89,7 +89,7 @@ export function Onboarding() {
   }
 
   async function copyPhrase() {
-    await copyWithAutoClear(phrase, 30);
+    if (!await copyWithAutoClear(phrase, 30)) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }

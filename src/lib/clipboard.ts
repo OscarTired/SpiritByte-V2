@@ -20,11 +20,11 @@ export async function copyWithAutoClear(value: string, ttlSeconds: number) {
     }
   } catch (err) {
     console.error("clipboard write failed", err);
-    return;
+    return false;
   }
 
   if (clearTimer) window.clearTimeout(clearTimer);
-  if (ttlSeconds <= 0) return;
+  if (ttlSeconds <= 0) return true;
 
   clearTimer = window.setTimeout(async () => {
     try {
@@ -39,4 +39,5 @@ export async function copyWithAutoClear(value: string, ttlSeconds: number) {
       /* ignore */
     }
   }, ttlSeconds * 1000);
+  return true;
 }

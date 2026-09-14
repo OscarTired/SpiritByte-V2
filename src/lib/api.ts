@@ -6,6 +6,7 @@ import type {
   Strength,
   VaultData,
   VaultStatus,
+  ExportSelection,
 } from "./types";
 
 /**
@@ -13,6 +14,10 @@ import type {
  * Tauri converts camelCase JS args to snake_case Rust parameters automatically.
  */
 export const api = {
+  exportBackup: (password: string, selection: ExportSelection | null = null) =>
+    invoke<boolean>("export_backup", { password, selection }),
+  importBackup: (contents: string, password: string) =>
+    invoke<void>("import_backup", { contents, password }),
   vaultStatus: () => invoke<VaultStatus>("vault_status"),
   createVault: (password: string) => invoke<string>("create_vault", { password }),
   unlock: (password: string) => invoke<void>("unlock", { password }),

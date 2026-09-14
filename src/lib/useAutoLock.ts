@@ -15,13 +15,15 @@ export function useAutoLock() {
   useEffect(() => {
     if (screen !== "unlocked" || minutes <= 0) return;
 
-    const reset = () => {
-      if (timer.current) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(
-        () => void lock(),
-        minutes * 60 * 1000,
-      );
+    const timeout = minutes * 60 * 1000;
+    let lastActivity = Date.now();
+    const reset = () => { lastActivity = Date.now(); };
+    const check = () => {
+      const remaining = timeout - (Date.now() - lastActivity);
+      if (remaining <= 0) void lock();
+      else timer.current = window.setTimeout(check, remaining);
     };
+    timer.current = window.setTimeout(check, timeout);
 
     const events = ["mousemove", "mousedown", "keydown", "wheel", "touchstart"];
     events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
