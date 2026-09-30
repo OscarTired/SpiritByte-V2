@@ -104,6 +104,10 @@ export type TranslationKey =
   | "settings.solid"
   | "settings.gradient"
   | "settings.image"
+  | "settings.imageFailed"
+  | "settings.imageTooLarge"
+  | "settings.lowPower"
+  | "settings.lowPowerHint"
   | "settings.autoLock"
   | "settings.clipboardClear"
   | "settings.dither"
@@ -224,6 +228,10 @@ const es: TranslationDict = {
   "settings.solid": "Sólido",
   "settings.gradient": "Gradiente",
   "settings.image": "Imagen",
+  "settings.imageFailed": "No se pudo abrir el fondo. Prueba un archivo PNG, JPG, GIF, WebP o BMP válido.",
+  "settings.imageTooLarge": "El fondo supera el límite de 32 MB. Elige un archivo más pequeño.",
+  "settings.lowPower": "Ahorro de recursos",
+  "settings.lowPowerHint": "Desactiva el flicker y oculta el fondo de imagen mientras la ventana está inactiva para detener los GIF. Activado por defecto en Linux.",
   "settings.autoLock": "Auto-bloqueo (min, 0=off)",
   "settings.clipboardClear": "Limpiar portapapeles (seg)",
   "settings.dither": "Dither del zorro (1-4)",
@@ -342,6 +350,10 @@ const en: TranslationDict = {
   "settings.solid": "Solid",
   "settings.gradient": "Gradient",
   "settings.image": "Image",
+  "settings.imageFailed": "Could not open the background. Try a valid PNG, JPG, GIF, WebP or BMP file.",
+  "settings.imageTooLarge": "The background exceeds the 32 MB limit. Choose a smaller file.",
+  "settings.lowPower": "Save resources",
+  "settings.lowPowerHint": "Disables flicker and hides image backgrounds while the window is inactive to stop GIFs. Enabled by default on Linux.",
   "settings.autoLock": "Auto-lock (min, 0=off)",
   "settings.clipboardClear": "Clipboard clear (sec)",
   "settings.dither": "Fox dither (1-4)",

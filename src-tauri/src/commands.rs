@@ -196,35 +196,49 @@ pub fn password_strength(password: String) -> Strength {
 // ----- Wallpaper -----
 
 #[tauri::command]
-pub fn save_wallpaper(state: State<AppState>, data: Vec<u8>, ext: String) -> CmdResult<String> {
-    let base = state.paths.settings.parent().unwrap();
-    if let Ok(entries) = std::fs::read_dir(base) {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            if name.to_string_lossy().starts_with("wallpaper.") {
-                let _ = std::fs::remove_file(entry.path());
+pub async fn pick_wallpaper(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> CmdResult<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+    let base = state.paths.settings.parent().unwrap().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected = app
+            .dialog()
+            .file()
+            .add_filter(
+                "PNG / JPG / GIF / WebP / BMP",
+                &[
+                    "png", "jpg", "jpeg", "gif", "webp", "bmp", "PNG", "JPG", "JPEG", "GIF",
+                    "WEBP", "BMP",
+                ],
+            )
+            .add_filter("All files", &["*"])
+            .blocking_pick_file();
+        let Some(selected) = selected else {
+            return Ok(None);
+        };
+        let source = selected.into_path().map_err(map)?;
+        let path = crate::wallpaper::import(&source, &base, &uuid::Uuid::new_v4().to_string())?;
+        // Retain the committed background until the frontend decodes the new one.
+        // Doing this here avoids racing unrelated preference saves during import.
+        let settings = std::fs::read(base.join("settings.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
+        if let Some(settings) = settings {
+            let previous = settings["background"]["value"]
+                .as_str()
+                .map(std::path::Path::new);
+            let mut keep = vec![path.as_path()];
+            if let Some(previous) = previous {
+                keep.push(previous);
             }
+            crate::wallpaper::cleanup(&base, &keep);
         }
-    }
-    let filename = format!("wallpaper.{}", ext);
-    let path = base.join(&filename);
-    std::fs::write(&path, &data).map_err(map)?;
-    Ok(path.to_string_lossy().to_string())
-}
-
-#[tauri::command]
-pub fn delete_wallpaper(state: State<AppState>) -> CmdResult<()> {
-    let base = state.paths.settings.parent().unwrap();
-    if let Ok(entries) = std::fs::read_dir(base) {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.starts_with("wallpaper.") {
-                std::fs::remove_file(entry.path()).map_err(map)?;
-            }
-        }
-    }
-    Ok(())
+        Ok(Some(path.to_string_lossy().to_string()))
+    })
+    .await
+    .map_err(map)?
 }
 
 // ----- Settings (cleartext UI preferences) -----
@@ -246,7 +260,13 @@ pub fn save_settings(state: State<AppState>, settings: serde_json::Value) -> Cmd
         std::fs::create_dir_all(parent).map_err(map)?;
     }
     let json = serde_json::to_vec_pretty(&settings).map_err(map)?;
-    std::fs::write(path, json).map_err(map)
+    let base = path.parent().unwrap();
+    let mut temp = tempfile::NamedTempFile::new_in(base).map_err(map)?;
+    use std::io::Write;
+    temp.write_all(&json).map_err(map)?;
+    temp.as_file().sync_all().map_err(map)?;
+    temp.persist(path).map_err(map)?;
+    Ok(())
 }
 
 // Password derivation and encryption run off the UI thread.

@@ -1,11 +1,12 @@
 import { BackupPanel } from "./BackupPanel";
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import { useSettings } from "@/store/useSettings";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { isTauri } from "@/lib/utils";
 import { PRESETS, type Palette } from "@/theme/palettes";
 import type { FontMode, Language } from "@/theme/settings";
+import { checkBackground } from "@/theme/background";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -75,6 +76,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const t = useI18n((s) => s.t);
   const fileRef = useRef<HTMLInputElement>(null);
   const colorDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState("");
 
   const setPaletteColor = useCallback(
     (key: keyof Palette, hex: string) => {
@@ -94,19 +97,34 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     if (cssVar) document.documentElement.style.setProperty(cssVar, hexToChannel(hex));
   }
 
-  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-    if (isTauri()) {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const path = await api.saveWallpaper(Array.from(bytes), ext);
-      update({ background: { type: "image", value: path } });
-    } else {
-      const reader = new FileReader();
-      reader.onload = () =>
-        update({ background: { type: "image", value: String(reader.result) } });
-      reader.readAsDataURL(file);
+  async function pickImage(file?: File) {
+    setImageBusy(true);
+    setImageError("");
+    try {
+      let value: string | null;
+      if (isTauri()) {
+        value = await api.pickWallpaper();
+      } else {
+        if (!file) return;
+        if (file.size > 32 * 1024 * 1024) throw new Error("wallpaper-too-large");
+        value = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+      }
+      if (!value) return; // Native dialog cancelled.
+      await checkBackground(value);
+      update({ background: { type: "image", value } });
+    } catch (error) {
+      const reason = String(error);
+      setImageError(t(reason.includes("wallpaper-too-large")
+        ? "settings.imageTooLarge"
+        : "settings.imageFailed"));
+    } finally {
+      setImageBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -230,6 +248,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
         <section className="grid grid-cols-2 gap-3">
           <Toggle
+            label={t("settings.lowPower")}
+            checked={settings.lowPowerMode}
+            onChange={(v) => update({ lowPowerMode: v })}
+          />
+          <Toggle
             label={t("settings.scanlines")}
             checked={settings.scanlines}
             onChange={(v) => update({ scanlines: v })}
@@ -237,7 +260,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           <Toggle label={t("settings.glow")} checked={settings.glow} onChange={(v) => update({ glow: v })} />
           <Toggle
             label={t("settings.flicker")}
-            checked={settings.flicker}
+            checked={settings.flicker && !settings.lowPowerMode}
+            disabled={settings.lowPowerMode}
             onChange={(v) => update({ flicker: v })}
           />
           <Toggle
@@ -246,14 +270,16 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             onChange={(v) => update({ showSplash: v })}
           />
         </section>
+        <p className="text-sm text-text-dim">{t("settings.lowPowerHint")}</p>
 
         <section>
           <h3 className="label mb-2">{t("settings.background")}</h3>
           <div className="flex gap-2 mb-2">
             <Button
               variant={settings.background.type === "solid" ? "primary" : "default"}
+              disabled={imageBusy}
               onClick={() => {
-                if (isTauri()) void api.deleteWallpaper();
+                setImageError("");
                 update({ background: { type: "solid", value: "" } });
               }}
             >
@@ -261,8 +287,9 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </Button>
             <Button
               variant={settings.background.type === "gradient" ? "primary" : "default"}
+              disabled={imageBusy}
               onClick={() => {
-                if (isTauri()) void api.deleteWallpaper();
+                setImageError("");
                 update({
                   background: { type: "gradient", value: "#1a1712|#0d0c0a" },
                 });
@@ -272,18 +299,23 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </Button>
             <Button
               variant={settings.background.type === "image" ? "primary" : "default"}
-              onClick={() => fileRef.current?.click()}
+              disabled={imageBusy}
+              onClick={() => isTauri() ? void pickImage() : fileRef.current?.click()}
             >
               {t("settings.image")}
             </Button>
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept=".png,.jpg,.jpeg,.gif,.webp,.bmp,image/png,image/jpeg,image/gif,image/webp,image/bmp"
               className="hidden"
-              onChange={onPickImage}
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                if (file) void pickImage(file);
+              }}
             />
           </div>
+          {imageError && <p role="alert" className="text-sm text-danger">{imageError}</p>}
           {settings.background.type === "gradient" && (
             <div className="flex gap-2">
               {settings.background.value.split("|").map((c, i) => (

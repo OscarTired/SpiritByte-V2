@@ -1,7 +1,28 @@
 import type { Palette } from "./palettes";
 import type { Settings } from "./settings";
-import { isTauri } from "@/lib/utils";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { backgroundSource } from "./background";
+
+let activeSettings: Settings | undefined;
+let listening = false;
+
+function applyBackground(settings: Settings) {
+  const body = document.body;
+  const { background } = settings;
+  let value = "";
+  if (background.type === "image" && background.value) {
+    // Removing the image while in the background stops GIF decoding/rendering.
+    if (!settings.lowPowerMode || (!document.hidden && document.hasFocus())) {
+      value = `url(${JSON.stringify(backgroundSource(background.value))})`;
+    }
+  } else if (background.type === "gradient" && background.value.includes("|")) {
+    const [a, b] = background.value.split("|");
+    value = `linear-gradient(135deg, ${a}, ${b})`;
+  }
+  // Stable file names change on import; unrelated settings reuse the same URL.
+  if (body.style.backgroundImage !== value) body.style.backgroundImage = value;
+  body.style.backgroundSize = "cover";
+  body.style.backgroundPosition = "center";
+}
 
 const VAR_MAP: Record<keyof Palette, string> = {
   bg: "--sb-bg",
@@ -18,6 +39,16 @@ const VAR_MAP: Record<keyof Palette, string> = {
 };
 
 export function applyTheme(settings: Settings) {
+  activeSettings = settings;
+  if (!listening) {
+    const refresh = () => {
+      if (activeSettings) applyBackground(activeSettings);
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("blur", refresh);
+    listening = true;
+  }
   const root = document.documentElement;
   const { palette } = settings;
   (Object.keys(VAR_MAP) as (keyof Palette)[]).forEach((key) => {
@@ -26,32 +57,14 @@ export function applyTheme(settings: Settings) {
 
   root.classList.toggle("fx-scanlines", settings.scanlines);
   root.classList.toggle("fx-glow", settings.glow);
-  root.classList.toggle("fx-flicker", settings.flicker);
+  root.classList.toggle("fx-flicker", settings.flicker && !settings.lowPowerMode);
 
   root.dataset.font = settings.font;
 
   root.style.setProperty("--sb-panel-opacity", String(settings.panelOpacity));
   root.style.setProperty("--sb-font-size", `${settings.fontSize}px`);
 
-  // Background layer applied to <body>.
-  const body = document.body;
-  const { background } = settings;
-  if (background.type === "image" && background.value) {
-    let imgSrc = background.value;
-    if (isTauri() && !imgSrc.startsWith("data:")) {
-      imgSrc = convertFileSrc(imgSrc.replace(/\\/g, "/"));
-      imgSrc += `?t=${Date.now()}`;
-    }
-    body.style.backgroundImage = `url("${imgSrc}")`;
-    body.style.backgroundSize = "cover";
-    body.style.backgroundPosition = "center";
-  } else if (background.type === "gradient" && background.value.includes("|")) {
-    const [a, b] = background.value.split("|");
-    body.style.backgroundImage = `linear-gradient(135deg, ${a}, ${b})`;
-    body.style.backgroundSize = "cover";
-  } else {
-    body.style.backgroundImage = "";
-  }
+  applyBackground(settings);
 }
 
 /** Returns a CSS rgb() string for a palette channel. */

@@ -5,14 +5,18 @@ interface ToggleProps {
   onChange: (v: boolean) => void;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function Toggle({ checked, onChange, label, className }: ToggleProps) {
+export function Toggle({ checked, onChange, label, className, disabled = false }: ToggleProps) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={cn("flex items-center gap-2 select-none", className)}
+      className={cn("flex items-center gap-2 select-none disabled:opacity-50", className)}
     >
       <span
         className={cn(

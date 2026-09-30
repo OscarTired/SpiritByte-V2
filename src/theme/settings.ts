@@ -27,6 +27,7 @@ export interface Settings {
   scanlines: boolean;
   glow: boolean;
   flicker: boolean;
+  lowPowerMode: boolean;
   ditherIntensity: number; // 1..4 pixel scale for the splash dither
   background: BackgroundConfig;
   panelOpacity: number; // 0..1 opacity for .panel elements
@@ -44,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   scanlines: true,
   glow: true,
   flicker: false,
+  lowPowerMode: typeof navigator !== "undefined" && /Linux/.test(navigator.userAgent),
   ditherIntensity: 2,
   background: { type: "solid", value: "" },
   panelOpacity: 1,

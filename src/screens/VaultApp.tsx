@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, useEffect, useRef } from "react";
+import { lazy, Suspense, memo, useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   Check,
   Copy,
@@ -42,14 +42,15 @@ import type { Entry, Folder } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { EntryEditor } from "@/features/entries/EntryEditor";
-import { GeneratorPanel } from "@/features/generator/GeneratorPanel";
-import { SettingsPanel } from "@/features/settings/SettingsPanel";
 import { copyWithAutoClear } from "@/lib/clipboard";
 import { useSettings } from "@/store/useSettings";
 import { uid, isTauri } from "@/lib/utils";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { openUrl } from "@tauri-apps/plugin-opener";
+
+const EntryEditor = lazy(() => import("@/features/entries/EntryEditor").then((m) => ({ default: m.EntryEditor })));
+const GeneratorPanel = lazy(() => import("@/features/generator/GeneratorPanel").then((m) => ({ default: m.GeneratorPanel })));
+const SettingsPanel = lazy(() => import("@/features/settings/SettingsPanel").then((m) => ({ default: m.SettingsPanel })));
 
 function GithubIcon({ size = 24, ...props }: LucideProps) {
   return (
@@ -407,22 +408,28 @@ export function VaultApp() {
         ))}
       </div>
 
-      <EntryEditor
-        open={editorOpen}
-        entry={editing}
-        folders={folders}
-        defaultFolderId={
-          activeFolder === ALL || activeFolder === FAV ? null : activeFolder
-        }
-        onClose={() => setEditorOpen(false)}
-        onSave={onSaveEntry}
-      />
+      <Suspense fallback={null}>
+        {editorOpen && (
+          <EntryEditor
+            open={editorOpen}
+            entry={editing}
+            folders={folders}
+            defaultFolderId={
+              activeFolder === ALL || activeFolder === FAV ? null : activeFolder
+            }
+            onClose={() => setEditorOpen(false)}
+            onSave={onSaveEntry}
+          />
+        )}
 
-      <Modal open={genOpen} onClose={() => setGenOpen(false)} title={t("vault.generator")}>
-        <GeneratorPanel />
-      </Modal>
+        {genOpen && (
+          <Modal open onClose={() => setGenOpen(false)} title={t("vault.generator")}>
+            <GeneratorPanel />
+          </Modal>
+        )}
 
-      {settingsOpen && <SettingsPanel open onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <SettingsPanel open onClose={() => setSettingsOpen(false)} />}
+      </Suspense>
 
       <Modal
         open={folderModal}

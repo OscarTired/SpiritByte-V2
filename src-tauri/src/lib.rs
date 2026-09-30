@@ -3,6 +3,7 @@ mod commands;
 mod generator;
 mod state;
 mod vault;
+mod wallpaper;
 
 use state::AppState;
 use tauri::Manager;
@@ -21,6 +22,20 @@ pub fn run() {
                 .expect("failed to resolve app data dir");
             std::fs::create_dir_all(&base).ok();
             app.manage(AppState::new(VaultPaths::new(base)));
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.with_webview(|webview| {
+                    use webkit2gtk::{SettingsExt, WebContextExt, WebViewExt};
+                    let view = webview.inner();
+                    // A single-page utility needs no browsing-history page cache.
+                    if let Some(context) = view.context() {
+                        context.set_cache_model(webkit2gtk::CacheModel::DocumentViewer);
+                    }
+                    if let Some(settings) = WebViewExt::settings(&view) {
+                        settings.set_enable_page_cache(false);
+                    }
+                })?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -44,8 +59,7 @@ pub fn run() {
             commands::password_strength,
             commands::get_settings,
             commands::save_settings,
-            commands::save_wallpaper,
-            commands::delete_wallpaper,
+            commands::pick_wallpaper,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -194,6 +194,9 @@ export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
       try { img = await loadFox(); } catch { /* Use vector fallback. */ }
       if (cancelled) return;
       buildArtwork(img);
+      // The source pixels are no longer used once the shaded artwork is cached.
+      if (img) img.removeAttribute("src");
+      source.width = source.height = 0;
       const animate = (now: number) => {
         if (cancelled) return;
         const reveal = reducedMotion ? 1 : Math.min(1, (now - started) / Math.max(1, duration * .65));
@@ -203,7 +206,15 @@ export function SplashFox({ onDone, duration = 3200 }: SplashFoxProps) {
       raf = requestAnimationFrame(animate);
     }
     void render();
-    return () => { cancelled = true; controller.abort(); cancelAnimationFrame(raf); };
+    return () => {
+      cancelled = true;
+      controller.abort();
+      cancelAnimationFrame(raf);
+      // Release canvas backing stores immediately rather than awaiting a JS GC.
+      canvas.width = canvas.height = 0;
+      source.width = source.height = 0;
+      artwork.width = artwork.height = 0;
+    };
   }, [ditherIntensity, palette.primary, palette.accent, glow, duration]);
 
   return (

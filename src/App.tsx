@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useVault } from "@/store/useVault";
 import { useSettings } from "@/store/useSettings";
 import { useAutoLock } from "@/lib/useAutoLock";
-import { SplashFox } from "@/components/SplashFox";
-import { Onboarding } from "@/screens/Onboarding";
-import { Unlock } from "@/screens/Unlock";
-import { VaultApp } from "@/screens/VaultApp";
+
+const SplashFox = lazy(() => import("@/components/SplashFox").then((m) => ({ default: m.SplashFox })));
+const Onboarding = lazy(() => import("@/screens/Onboarding").then((m) => ({ default: m.Onboarding })));
+const Unlock = lazy(() => import("@/screens/Unlock").then((m) => ({ default: m.Unlock })));
+const VaultApp = lazy(() => import("@/screens/VaultApp").then((m) => ({ default: m.VaultApp })));
 
 export default function App() {
   const screen = useVault((s) => s.screen);
@@ -39,17 +40,19 @@ export default function App() {
 
   return (
     <div className="h-full">
-      {splashVisible && <SplashFox onDone={() => void finishBoot()} />}
+      <Suspense fallback={<div className="h-full" />}>
+        {splashVisible && <SplashFox onDone={() => void finishBoot()} />}
 
-      {booted && (
-        <>
-          {screen === "onboarding" && <Onboarding />}
-          {screen === "locked" && <Unlock />}
-          {screen === "unlocked" && <VaultApp />}
-        </>
-      )}
+        {booted && (
+          <>
+            {screen === "onboarding" && <Onboarding />}
+            {screen === "locked" && <Unlock />}
+            {screen === "unlocked" && <VaultApp />}
+          </>
+        )}
 
-      {!booted && !splashVisible && <div className="h-full bg-bg" />}
+        {!booted && !splashVisible && <div className="h-full bg-bg" />}
+      </Suspense>
     </div>
   );
 }

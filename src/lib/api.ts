@@ -46,7 +46,5 @@ export const api = {
   saveSettings: (settings: unknown) =>
     invoke<void>("save_settings", { settings }),
 
-  saveWallpaper: (data: number[], ext: string) =>
-    invoke<string>("save_wallpaper", { data, ext }),
-  deleteWallpaper: () => invoke<void>("delete_wallpaper"),
+  pickWallpaper: () => invoke<string | null>("pick_wallpaper"),
 };
