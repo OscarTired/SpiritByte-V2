@@ -43,7 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: "es",
   scanlines: true,
   glow: true,
-  flicker: true,
+  flicker: false,
   ditherIntensity: 2,
   background: { type: "solid", value: "" },
   panelOpacity: 1,

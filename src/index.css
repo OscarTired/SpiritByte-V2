@@ -233,8 +233,7 @@
 }
 
 /* ---- CRT effects (toggled by applyTheme) ---- */
-.fx-scanlines body::before,
-.fx-scanlines #root::after {
+.fx-scanlines body::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -242,8 +241,8 @@
   z-index: 9999;
   background: repeating-linear-gradient(
     to bottom,
-    rgb(0 0 0 / 0.18) 0px,
-    rgb(0 0 0 / 0.18) 1px,
+    rgb(0 0 0 / 0.3276) 0px,
+    rgb(0 0 0 / 0.3276) 1px,
     transparent 1px,
     transparent 3px
   );
@@ -257,25 +256,19 @@
 }
 
 .fx-flicker #root {
-  animation: flicker 6s linear infinite;
+  /* Opt-in discrete pulses avoid interpolating the whole window every frame. */
+  animation: flicker 6s steps(1, end) infinite;
 }
 
 @keyframes flicker {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  92% {
-    opacity: 1;
-  }
-  93% {
-    opacity: 0.86;
-  }
-  94% {
-    opacity: 1;
-  }
-  97% {
-    opacity: 0.92;
+  0%, 92%, 94%, 98%, 100% { opacity: 1; }
+  93% { opacity: 0.86; }
+  97% { opacity: 0.92; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-flicker #root {
+    animation: none;
   }
 }
 

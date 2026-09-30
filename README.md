@@ -113,6 +113,7 @@ Format v1 uses fixed Argon2id parameters (64 MiB, 3 iterations, 1 lane), a fresh
 - Entry and folder saves update the affected frontend records without fetching the entire vault again. Unchanged entry rows reuse their rendered output.
 - Password strength checks are debounced, and the inactivity timer tracks activity without recreating a timeout on every mouse movement.
 - The splash precomputes its shaded Bayer-dithered fox once, then reveals the cached artwork. Its vector facets, subtle phosphor glow and scan sweep follow the active palette; reduced-motion preferences skip the sweep.
+- CRT flicker is off by default to keep the interface idle. If enabled in Appearance, it uses discrete pulses instead of continuously interpolating the entire window. Scanlines use one overlay, and reduced-motion preferences disable flicker.
 - Pending saves and refreshes cannot repopulate the frontend after locking. Vault writes use atomic replacement, and failed saves retain the previous data.
 
 ## Installation
@@ -130,16 +131,104 @@ Download the latest installer from the [Releases](https://github.com/OscarTired/
 
 ### Linux / CachyOS
 
-For CachyOS and other Arch-based distributions, use the **x86_64 AppImage** on an Intel/AMD laptop. The `.deb` package is intended for Debian/Ubuntu.
+For CachyOS and other Arch-based distributions on an x86_64 laptop, try **`-displayfix.AppImage`** first. It uses the system's Wayland/X11 libraries while keeping WebKitGTK's default rendering settings. If it still opens a blank window, use **`-compat.AppImage`**, which also disables the DMA-BUF renderer and accelerated compositing. That fallback can increase CPU use during animations. The standard AppImage is also generated; the `.deb` package is intended for Debian/Ubuntu.
 
 Copy the AppImage to your laptop, then make it executable and launch it:
 
 ```bash
-chmod +x SpiritByte_*.AppImage
-./SpiritByte_*.AppImage
+chmod +x SpiritByte_0.1.2_amd64-displayfix.AppImage
+env -u WEBKIT_DISABLE_DMABUF_RENDERER -u WEBKIT_DISABLE_COMPOSITING_MODE ./SpiritByte_0.1.2_amd64-displayfix.AppImage
 ```
 
 If launching reports a missing `libfuse.so.2`, install FUSE 2 with `sudo pacman -Syu fuse2`, or run the AppImage with `--appimage-extract-and-run`.
+
+Older bundled Wayland/X11 libraries can conflict with a newer host Mesa and
+leave a blank window even with rendering workarounds enabled. See
+[Tauri's AppImage display-library report](https://github.com/tauri-apps/tauri/issues/15976).
+The `-displayfix` and `-compat` variants remove only those display libraries; WebKitGTK and the rest
+of the application remain bundled. It relies on the desktop system to provide
+Wayland, X11 and xkbcommon libraries. Its launch hook applies the rendering
+workarounds automatically in `-compat`; `-displayfix` does not force them. The
+launch command above clears flags left over from earlier troubleshooting.
+
+If the window opens but remains black or blank, close it and try disabling
+WebKitGTK's DMA-BUF renderer for that launch:
+
+```bash
+env -u WEBKIT_DISABLE_COMPOSITING_MODE WEBKIT_DISABLE_DMABUF_RENDERER=1 ./SpiritByte_0.1.2_amd64-displayfix.AppImage
+```
+
+If it still stays blank, try disabling accelerated compositing as well:
+
+```bash
+./SpiritByte_0.1.2_amd64-compat.AppImage
+```
+
+These workarounds affect the graphics path and can reduce rendering performance.
+See [Tauri's Linux graphics troubleshooting](https://v2.tauri.app/develop/debug/linux-graphics/).
+For a Wayland protocol error or a blank window under Hyprland, try the X11
+backend on a system with XWayland installed:
+
+```bash
+env -u WEBKIT_DISABLE_COMPOSITING_MODE WEBKIT_DISABLE_DMABUF_RENDERER=1 GDK_BACKEND=x11 ./SpiritByte_0.1.2_amd64-displayfix.AppImage
+```
+
+The `env` form works in Bash and Fish. In Fish, `set NAME VALUE` does not export a
+new variable to the app; use `set -gx NAME VALUE` if setting it separately. See
+[Fish's variable export documentation](https://fishshell.com/docs/current/cmds/set.html).
+Keep the terminal output when reporting a problem, along with your GPU and
+session type (`echo "$XDG_SESSION_TYPE"`).
+
+When comparing CPU usage, distinguish the startup animation from idle usage:
+wait at least 20 seconds without typing or moving the mouse over the app, then
+compare the same screen in both variants. If usage stays high, try disabling
+flicker, scanlines and glow in Settings > Appearance, and use a static background.
+Linux uses WebKitGTK, so its graphics behavior can differ from Windows.
+Existing saved preferences are preserved: if flicker was enabled in an older
+version, turn it off manually. New vaults after a full preferences reset use the
+new default.
+
+In a local 20-second idle comparison on Ubuntu 22.04 with Xvfb and accelerated
+compositing disabled, SpiritByte plus its WebKit processes used 24.38% of one
+CPU core with the previous defaults and 0.50% with the new defaults. Both runs
+used the onboarding screen with scanlines and glow enabled. These are process
+CPU measurements in a virtual display, not total system usage or a guarantee
+for a particular laptop.
+
+**Add SpiritByte to your application launcher**
+
+Copy `install-spiritbyte.sh` from the bundle's `appimage/` directory together with
+the AppImage. Close SpiritByte before installing or updating it. From Downloads:
+
+```bash
+bash install-spiritbyte.sh SpiritByte_0.1.2_amd64-displayfix.AppImage
+```
+
+Use the `-compat.AppImage` filename instead if that variant works better on your
+system. The installer needs no sudo: it copies the app to
+`~/Applications/SpiritByte.AppImage`, extracts its icon, and creates
+`~/.local/share/applications/com.spiritbyte.app.desktop` (or the corresponding
+`$XDG_DATA_HOME` directory). Search for **SpiritByte** in your application launcher.
+The keyboard shortcut depends on your Hyprland configuration; if its launcher
+shows only commands, switch it to desktop/application mode. Running the installer
+again updates the same entry and keeps your vault.
+
+**Reset a forgotten master key**
+
+If you saved your 12-word recovery phrase, use the recovery option on the unlock
+screen to reset your password while preserving the vault. Otherwise, close the
+app and move its data directory aside to start a new vault:
+
+```bash
+bash -c 'data="${XDG_DATA_HOME:-$HOME/.local/share}/com.spiritbyte.app"; if [ -d "$data" ]; then mv -T -- "$data" "$data.backup-$(date +%s)"; fi'
+```
+
+This preserves the old encrypted vault in a timestamped backup directory. The next
+launch asks you to create a new master key. The previous data still requires its
+original password or recovery phrase; creating a new vault does not unlock it.
+Preferences are also reset. To remove only the existing vault permanently instead,
+delete `vault.dat` and `vault.meta.json` from that data directory while the app is
+closed.
 
 ### Updating on Windows
 
@@ -176,7 +265,7 @@ Start Docker Desktop with Linux containers enabled, then run from the desktop pr
 ./scripts/build-linux.ps1
 ```
 
-The builder uses Ubuntu 22.04, installs Linux dependencies, and builds the current local sources. It writes `.AppImage` files to `src-tauri/target/release/bundle/appimage/` and `.deb` files to `src-tauri/target/release/bundle/deb/`, alongside the Windows installers. The first build downloads the toolchains; subsequent builds reuse Docker's image and Rust caches.
+The builder uses Ubuntu 22.04, installs Linux dependencies, and builds the current local sources. It writes standard, `-displayfix.AppImage` and `-compat.AppImage` files to `src-tauri/target/release/bundle/appimage/` and `.deb` files to `src-tauri/target/release/bundle/deb/`, alongside the Windows installers. The first build downloads the toolchains; subsequent builds reuse Docker's image and Rust caches.
 
 **Build directly on CachyOS / Arch Linux**
 

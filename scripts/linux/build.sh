@@ -13,6 +13,14 @@ pnpm install --frozen-lockfile
 pnpm tauri build --bundles appimage,deb -- --locked
 
 mkdir -p /output/appimage /output/deb
+cp scripts/linux/install-spiritbyte.sh /output/appimage/install-spiritbyte.sh
 cp /linux-target/release/bundle/appimage/*.AppImage /output/appimage/
 cp /linux-target/release/bundle/deb/*.deb /output/deb/
+for appimage in /linux-target/release/bundle/appimage/*.AppImage; do
+    name=$(basename "$appimage" .AppImage)
+    bash scripts/linux/package-compat-appimage.sh \
+        "$appimage" "/output/appimage/${name}-displayfix.AppImage" displayfix
+    bash scripts/linux/package-compat-appimage.sh \
+        "$appimage" "/output/appimage/${name}-compat.AppImage"
+done
 sha256sum /output/appimage/*.AppImage /output/deb/*.deb
