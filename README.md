@@ -74,6 +74,7 @@ A secure, fully customizable password manager with a retro CRT/pixel aesthetic. 
 
 **Cross-platform**
 - Native installers for Windows (MSI via WiX, NSIS), macOS, and Linux
+- Android version available: [SpiritByte for Android](https://github.com/OscarTired/SpiritByte-Android), built with native Kotlin/Compose and the shared Rust vault engine
 - Multilingual: English and Spanish with runtime switching
 
 > [!TIP]
@@ -125,6 +126,20 @@ Download the latest installer from the [Releases](https://github.com/OscarTired/
 | Windows | `.msi` (WiX) or `-setup.exe` (NSIS) |
 | macOS | `.dmg` |
 | Linux | `.deb` / `.AppImage` |
+| Android | See [SpiritByte-Android](https://github.com/OscarTired/SpiritByte-Android) for downloads and build instructions |
+
+### Linux / CachyOS
+
+For CachyOS and other Arch-based distributions, use the **x86_64 AppImage** on an Intel/AMD laptop. The `.deb` package is intended for Debian/Ubuntu.
+
+Copy the AppImage to your laptop, then make it executable and launch it:
+
+```bash
+chmod +x SpiritByte_*.AppImage
+./SpiritByte_*.AppImage
+```
+
+If launching reports a missing `libfuse.so.2`, install FUSE 2 with `sudo pacman -Syu fuse2`, or run the AppImage with `--appimage-extract-and-run`.
 
 ### Updating on Windows
 
@@ -151,17 +166,47 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
+Tauri builds bundles for the current operating system. On Windows, `bundle.targets: "all"` produces MSI/NSIS installers; Linux packages must be built in a Linux environment. See the [Tauri AppImage guide](https://v2.tauri.app/distribute/appimage/) for portability requirements.
+
+**Build Linux packages from Windows with Docker Desktop**
+
+Start Docker Desktop with Linux containers enabled, then run from the desktop project in PowerShell. The Rust core is included in this repository; no Android checkout is required:
+
+```powershell
+./scripts/build-linux.ps1
+```
+
+The builder uses Ubuntu 22.04, installs Linux dependencies, and builds the current local sources. It writes `.AppImage` files to `src-tauri/target/release/bundle/appimage/` and `.deb` files to `src-tauri/target/release/bundle/deb/`, alongside the Windows installers. The first build downloads the toolchains; subsequent builds reuse Docker's image and Rust caches.
+
+**Build directly on CachyOS / Arch Linux**
+
+Install Node.js, pnpm, a current Rust toolchain, and the [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/). Clone the desktop repository before building:
+
+```bash
+git clone https://github.com/OscarTired/SpiritByte-V2.git
+cd SpiritByte-V2
+pnpm install --frozen-lockfile
+pnpm tauri build --bundles appimage -- --locked
+```
+
+The resulting AppImage is in `src-tauri/target/release/bundle/appimage/`. Builds made on a rolling distribution target that system's libraries; use the Ubuntu Docker builder for distribution to older Linux systems.
+
 **Run crypto tests**
 
 ```bash
-cd src-tauri
-cargo test --manifest-path ../../SpiritByte-Android/core/Cargo.toml
+cargo test --manifest-path core/Cargo.toml --locked
 ```
 
-The vault engine now lives in the sibling `SpiritByte-Android/core` library and is
-shared with the native Kotlin/Compose Android app. Keep both project directories
-side by side; `src-tauri/src/{crypto,vault,backup,generator}.rs` are compatibility
-re-exports. Make engine changes in `SpiritByte-Android/core/src`.
+The vault engine is the standalone `spiritbyte-core` Rust library in this
+repository's `core/` directory. Desktop builds use only this local copy and do
+not require the Android repository or Android SDK. Android includes its own copy
+of the same library so it can also build independently.
+
+`src-tauri/src/{crypto,vault,backup,generator}.rs` are compatibility re-exports.
+Make engine changes in `core/src`. When changing the engine, apply the same
+source and dependency changes to Android's `core/` and run the core tests in both
+repositories to preserve vault and backup compatibility. Copies do not synchronize
+automatically. See [the core library README](core/README.md).
 
 ## Architecture
 
@@ -174,11 +219,15 @@ src/                       Frontend (React + TypeScript)
   theme/                   Palettes + theme application (CSS vars)
   lib/                     API bridge, clipboard, auto-lock, types
 
-src-tauri/src/             Backend (Rust)
-  crypto.rs                Argon2id, XChaCha20-Poly1305, BIP39
-  vault.rs                 Data model, on-disk format, operations
-  backup.rs                Encrypted portable backups, validation and additive restore
-  generator.rs             Password generator + strength estimation
+core/                      Standalone spiritbyte-core library (included locally)
+  src/crypto.rs            Argon2id, XChaCha20-Poly1305, BIP39
+  src/vault.rs             Data model, on-disk format, operations
+  src/backup.rs            Encrypted portable backups and additive restore
+  src/generator.rs         Password generator + strength estimation
+  tests/                   Export selection integration tests
+
+src-tauri/src/             Desktop backend (Rust)
+  {crypto,vault,backup,generator}.rs  Core compatibility re-exports
   state.rs                 Session state (DEK in memory)
   commands.rs              Tauri IPC commands exposed to frontend
 ```

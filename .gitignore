@@ -6,6 +6,7 @@ dist-ssr
 
 # Rust / Tauri
 src-tauri/target
+core/target
 src-tauri/gen/schemas
 
 # Editor

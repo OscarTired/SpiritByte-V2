@@ -1,2 +1,2 @@
-//! Shared engine; edit SpiritByte-Android/core/src/crypto.rs.
+//! Platform-independent engine; edit core/src/crypto.rs in this repository.
  pub use spiritbyte_core::crypto::*;
