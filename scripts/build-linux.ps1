@@ -12,7 +12,7 @@ if ($LASTEXITCODE -ne 0 -or $dockerPlatform -ne 'linux') {
 docker build --tag spiritbyte-linux-builder (Join-Path $PSScriptRoot 'linux')
 if ($LASTEXITCODE -ne 0) { throw 'The Linux builder image could not be built.' }
 
-$bundlePath = Join-Path $projectPath 'src-tauri/target/release/bundle'
+$bundlePath = Join-Path $projectPath 'linux-native/target/release/bundle'
 New-Item -ItemType Directory -Force -Path $bundlePath | Out-Null
 docker run --rm `
     --mount "type=bind,source=$projectPath,target=/source/desktop,readonly" `
@@ -22,4 +22,4 @@ docker run --rm `
     spiritbyte-linux-builder
 if ($LASTEXITCODE -ne 0) { throw 'The Linux build failed.' }
 
-Write-Host "Linux packages are available in $bundlePath\appimage and $bundlePath\deb."
+Write-Host "Native GTK bundle is available in $bundlePath."

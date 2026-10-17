@@ -75,3 +75,29 @@ test("resource saving stops backgrounds on blur or hide and restores on focus", 
   assert.equal(t.style.backgroundImage, original);
   assert.equal(t.classes["fx-flicker"], true);
 });
+
+test("Wayland startup without DOM focus still displays the wallpaper", async () => {
+  const t = await theme();
+  t.focus(false);
+  t.applyTheme({ ...settings, lowPowerMode: true });
+  assert.notEqual(t.style.backgroundImage, "");
+  t.events.blur();
+  assert.equal(t.style.backgroundImage, "");
+  t.events.focus();
+  assert.notEqual(t.style.backgroundImage, "");
+});
+
+test("static photos stay visible on blur and release their surfaces when hidden", async () => {
+  const t = await theme();
+  t.applyTheme({ ...settings, lowPowerMode: true, background: { type: "image", value: "/test/wallpaper.jpg" } });
+  const original = t.style.backgroundImage;
+  t.events.blur();
+  assert.equal(t.style.backgroundImage, original);
+  assert.equal(t.assignments.length, 1);
+  document.hidden = true;
+  t.events.visibilitychange();
+  assert.equal(t.style.backgroundImage, "");
+  document.hidden = false;
+  t.events.visibilitychange();
+  assert.equal(t.style.backgroundImage, original);
+});

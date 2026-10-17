@@ -7,6 +7,7 @@ dist-ssr
 # Rust / Tauri
 src-tauri/target
 core/target
+linux-native/target
 src-tauri/gen/schemas
 
 # Editor
@@ -16,3 +17,12 @@ src-tauri/gen/schemas
 
 # OS
 Thumbs.db
+
+# Python validation caches
+__pycache__/
+
+# Local agent tooling, review artifacts, and product notes
+.agents/
+.codex/
+.impeccable/
+PRODUCT.md

@@ -4,7 +4,7 @@
 
 ### Local-first retro password manager
 
-A secure, fully customizable password manager with a retro CRT/pixel aesthetic. Built with Tauri 2 (Rust) + React/TypeScript. Your data never leaves your device.
+A secure, fully customizable password manager with a retro CRT/pixel aesthetic. Windows/macOS use Tauri 2 + React/TypeScript; Linux uses a separate native GTK 3 client in Rust. Both share the same vault engine. Your data never leaves your device.
 
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-orange?logo=tauri&logoColor=white)](https://v2.tauri.app/)
 [![Rust](https://img.shields.io/badge/Rust-1.77+-red?logo=rust&logoColor=white)](https://www.rust-lang.org/)
@@ -109,16 +109,34 @@ Format v1 uses fixed Argon2id parameters (64 MiB, 3 iterations, 1 lane), a fresh
 
 ## Performance
 
+The following frontend notes describe the Tauri client. The native Linux client
+uses event-driven GTK rendering, one process and the shared Rust core; see the
+[Linux installation](#linux--cachyos--native-gtk) section.
+
+On the CachyOS/Hyprland laptop (2026-10-05), the native release measured
+**32.5 MiB PSS / 60.1 MiB summed RSS** with a solid background, glow and scanlines,
+and **37.1 MiB PSS / 63.2 MiB summed RSS** with the two-frame GIF fixture plus
+scanlines, glow and flicker. Both used 15 seconds of warmup and 20 seconds of
+sampling, with resource saving off and disposable data. The solid screen used
+0.00% of one CPU core; the active GIF/effects used 14.84%. The GIF's two rendered
+frames were also checked after the sample. The previous WebKit client used about
+250 MiB PSS / 385 MiB summed RSS in the solid-background comparison below.
+The fixture measures the runtime baseline; larger photos/GIFs and an unlocked
+vault add their own decoded surfaces/data.
+
 - Search sorting and normalized text are cached until entries change, avoiding repeated sorting while typing or switching folders.
 - Entry and folder saves update the affected frontend records without fetching the entire vault again. Unchanged entry rows reuse their rendered output.
 - Password strength checks are debounced, and the inactivity timer tracks activity without recreating a timeout on every mouse movement.
 - The splash precomputes its shaded Bayer-dithered fox once, then reveals the cached artwork. Its vector facets, subtle phosphor glow and scan sweep follow the active palette; reduced-motion preferences skip the sweep.
 - CRT flicker is off by default to keep the interface idle. If enabled in Appearance, it uses discrete pulses instead of continuously interpolating the entire window. Scanlines use one overlay, and reduced-motion preferences disable flicker.
-- **Save resources** is enabled by default on Linux, including existing preferences that do not yet specify this option. It suppresses flicker and removes image backgrounds while the window is hidden or unfocused, stopping GIF playback; refocusing restores the background. Disable it in Appearance if you want the background visible while working in another window.
+- **Save resources** is enabled by default on Linux, including existing preferences that do not yet specify this option. It suppresses flicker and unloads GIF/WebP backgrounds on blur, restoring them on focus. Static photos stay visible in inactive windows; hiding the window unloads all image backgrounds. Disable it in Appearance if you want the background visible while working in another window.
 - Wallpapers use the native desktop file picker with explicit PNG/JPG/GIF/WebP/BMP filters and an all-files fallback. Rust streams the selected file directly into app data (32 MiB limit), detects its format from the contents, and keeps the previous background until the new image can be decoded. Images are no longer expanded into a JavaScript number array or reloaded when unrelated settings change.
-- On Linux, WebKit uses the document-viewer cache model and disables browsing-history page caching. These reduce cache allocation; the WebKit runtime and decoded image surfaces still have a memory cost, and actual CPU/RAM use depends on the graphics stack and the selected GIF.
+- The asset protocol allows `$APPDATA/wallpaper.*` explicitly. On Linux, broad globs do not match hidden directory components such as `.local`; the explicit app-data path lets imported backgrounds load without exposing vault or settings files.
+- Linux release builds use the JavaScriptCore interpreter to avoid JIT compiler pages/caches; cryptography remains native Rust. Set `JSC_useJIT=true` before launching to restore JIT for unusually large vaults. WebKit uses on-demand hardware compositing, the document-viewer cache model, no browsing-history page cache, and disables unused WebGL/audio/video APIs. Canvas, GIFs and CRT effects remain supported. These reduce allocation; the WebKit runtime and decoded image surfaces still have a memory cost, and actual CPU/RAM use depends on the graphics stack and the selected GIF.
 - Screens and optional dialogs load on demand. Closing the entry editor or generator unmounts its state, and the splash releases its decoded source and canvas buffers when finished. Palettes, fonts, effects and wallpapers remain available. These changes reduce eager work, but do not remove WebKit's base memory cost.
 - Pending saves and refreshes cannot repopulate the frontend after locking. Vault writes use atomic replacement, and failed saves retain the previous data.
+
+**Legacy WebKit comparison:** On CachyOS/Hyprland (2026-10-05), a release AppImage comparison with the same bundled runtime, a solid background, glow/scanlines and resource saving off measured **249.9 → 244.6 MiB PSS** and **385.4 → 380.0 MiB summed RSS** after a 15-second warmup and 20-second sample. This small difference can overlap run variation: these changes **do not deliver a substantial idle RAM reduction or Windows-like memory usage**. The WebKit renderer/network processes remain the main cost. A software-rendering fallback reduced memory but increased idle CPU significantly, so it is not forced. GIF animation was checked with two different rendered frames; the production UI searched 1,000 fictitious entries in approximately 37 ms. These fixture results are not a guarantee for every wallpaper or vault.
 
 ## Installation
 
@@ -130,92 +148,87 @@ Download the latest installer from the [Releases](https://github.com/OscarTired/
 |---|---|
 | Windows | `.msi` (WiX) or `-setup.exe` (NSIS) |
 | macOS | `.dmg` |
-| Linux | `.deb` / `.AppImage` |
+| Linux | Native GTK `.tar.gz` (this source); older releases used `.deb` / `.AppImage` |
 | Android | See [SpiritByte-Android](https://github.com/OscarTired/SpiritByte-Android) for downloads and build instructions |
 
-### Linux / CachyOS
+### Linux / CachyOS — native GTK
 
-For CachyOS and other Arch-based distributions on an x86_64 laptop, try **`-displayfix.AppImage`** first. It uses the system's Wayland/X11 libraries while keeping WebKitGTK's default rendering settings. If it still opens a blank window, use **`-compat.AppImage`**, which also disables the DMA-BUF renderer and accelerated compositing. That fallback can increase CPU use during animations. The standard AppImage is also generated; the `.deb` package is intended for Debian/Ubuntu.
+Linux now builds `linux-native/`: one native Rust/GTK process, with **no WebKit,
+JavaScriptCore, React or Node runtime**. Windows keeps its existing Tauri UI and
+build commands. The native client reads the same `com.spiritbyte.app` data directory,
+vault format, recovery phrase, encrypted backups and visual settings; no vault
+migration or plaintext export is needed.
 
-Copy the AppImage to your laptop, then make it executable and launch it:
-
-```bash
-chmod +x SpiritByte_0.1.2_amd64-displayfix.AppImage
-env -u WEBKIT_DISABLE_DMABUF_RENDERER -u WEBKIT_DISABLE_COMPOSITING_MODE ./SpiritByte_0.1.2_amd64-displayfix.AppImage
-```
-
-If launching reports a missing `libfuse.so.2`, install FUSE 2 with `sudo pacman -Syu fuse2`, or run the AppImage with `--appimage-extract-and-run`.
-
-Older bundled Wayland/X11 libraries can conflict with a newer host Mesa and
-leave a blank window even with rendering workarounds enabled. See
-[Tauri's AppImage display-library report](https://github.com/tauri-apps/tauri/issues/15976).
-The `-displayfix` and `-compat` variants remove only those display libraries; WebKitGTK and the rest
-of the application remain bundled. It relies on the desktop system to provide
-Wayland, X11 and xkbcommon libraries. Its launch hook applies the rendering
-workarounds automatically in `-compat`; `-displayfix` does not force them. The
-launch command above clears flags left over from earlier troubleshooting.
-
-If the window opens but remains black or blank, close it and try disabling
-WebKitGTK's DMA-BUF renderer for that launch:
+Build and install on CachyOS:
 
 ```bash
-env -u WEBKIT_DISABLE_COMPOSITING_MODE WEBKIT_DISABLE_DMABUF_RENDERER=1 ./SpiritByte_0.1.2_amd64-displayfix.AppImage
+sudo pacman -S --needed base-devel rust gtk3 fontconfig
+cargo test --manifest-path linux-native/Cargo.toml --locked
+cargo test --manifest-path core/Cargo.toml
+cargo build --manifest-path linux-native/Cargo.toml --release --locked
+bash scripts/linux/package-native.sh linux-native/target/release/spiritbyte linux-native/target/release/bundle
+bash scripts/linux/install-native.sh linux-native/target/release/bundle/SpiritByte_0.1.2_linux-native_x86_64
 ```
 
-If it still stays blank, try disabling accelerated compositing as well:
+The native archive includes an executable, icon, installer and font licenses.
+GTK/display libraries come from the host, avoiding old bundled Wayland/Mesa
+conflicts. The installer checks shared libraries, installs to
+`~/Applications/SpiritByte/spiritbyte` and replaces the same application-launcher
+entry. It retires `~/Applications/SpiritByte.AppImage` to
+`$XDG_DATA_HOME/spiritbyte-install-backups/` for rollback. It never changes or
+deletes the vault, settings or wallpaper files. Close the previous app before
+updating. Legacy AppImage scripts remain for earlier builds.
+
+The GTK vault follows the Windows three-pane layout: folders and favorites on the
+left, search and credentials in the middle, and a selectable detail view on the
+right. Both dividers can be resized. Appearance, security and encrypted backups
+are grouped in Settings. Embedded TTF copies of the existing retro fonts load
+through Fontconfig/Pango without installing fonts on the system. CRT effects
+paint on the existing container instead of adding an input-blocking window.
+
+The native layout provides entries, nested folders, favorites, search, generator,
+master-password changes/recovery, encrypted imports/exports, English/Spanish,
+auto-lock and clipboard expiration. Use Ctrl/Shift to select multiple rows for
+export. The current-folder export includes descendants and empty folders; with a
+search query it exports the visible matching entries.
+
+Photos and animated GIFs are decoded directly, with bounded image surfaces.
+PNG/JPEG/BMP use GdkPixbuf; static WebP also has a built-in fallback when the
+system lacks a WebP loader. GIFs use an incremental Rust decoder that keeps only
+working frames, paints at most 20 FPS and invalidates changed rectangles instead
+of repainting every pane. Preset/custom colors, retro fonts, gradients, panel
+opacity, glow, scanlines and optional discrete flicker are supported. The Windows
+phosphor-fox intro also runs in native Cairo, releases its artwork and timer after
+3.2 seconds, and can be disabled in Appearance.
+The folder-section plus creates a folder; a pencil beside each folder edits its
+name, parent, icon and color. Removing the automatic “No folder” filter hides it
+without deleting credentials; Appearance can restore it.
+In power-saving mode, an unfocused/minimized window pauses GIF/flicker timers;
+static photos remain visible. Costly password derivations and backup cryptography
+run on worker threads. Locking clears the session, closes secret editors, clears
+owned clipboard text and rejects late unlock results. GTK buffers are cleared
+before disposing secret forms; the shared core continues zeroizing its secrets.
+
+For an isolated end-to-end native UI check (never your real vault):
 
 ```bash
-./SpiritByte_0.1.2_amd64-compat.AppImage
+cargo build --manifest-path linux-native/Cargo.toml --release --features ui-check --locked
+python scripts/linux/check-native-ui.py linux-native/target/release/spiritbyte --output linux-native/target/validation/ui.json
+# Run separately: pointer/keyboard events and window-only screenshots on Hyprland.
+python scripts/linux/check-native-interaction.py linux-native/target/release/spiritbyte --output .impeccable/review
+python scripts/linux/check-native-interaction.py linux-native/target/release/spiritbyte --output .impeccable/review/onboarding --onboarding
+python scripts/linux/check-native-lifecycle.py linux-native/target/release/spiritbyte --output .impeccable/review/lifecycle.json --assert-stable
+# Rebuild without the opt-in checker before packaging/installing.
+cargo build --manifest-path linux-native/Cargo.toml --release --locked
+python scripts/linux/measure-memory.py linux-native/target/release/spiritbyte --native --size 1100x720
+python scripts/linux/check-native-gif.py linux-native/target/release/spiritbyte
 ```
 
-These workarounds affect the graphics path and can reduce rendering performance.
-See [Tauri's Linux graphics troubleshooting](https://v2.tauri.app/develop/debug/linux-graphics/).
-For a Wayland protocol error or a blank window under Hyprland, try the X11
-backend on a system with XWayland installed:
-
-```bash
-env -u WEBKIT_DISABLE_COMPOSITING_MODE WEBKIT_DISABLE_DMABUF_RENDERER=1 GDK_BACKEND=x11 ./SpiritByte_0.1.2_amd64-displayfix.AppImage
-```
-
-The `env` form works in Bash and Fish. In Fish, `set NAME VALUE` does not export a
-new variable to the app; use `set -gx NAME VALUE` if setting it separately. See
-[Fish's variable export documentation](https://fishshell.com/docs/current/cmds/set.html).
-Keep the terminal output when reporting a problem, along with your GPU and
-session type (`echo "$XDG_SESSION_TYPE"`).
-
-When comparing CPU usage, distinguish the startup animation from idle usage:
-wait at least 20 seconds without typing or moving the mouse over the app, then
-compare the same screen in both variants. If usage stays high, try disabling
-flicker, scanlines and glow in Settings > Appearance, and use a static background.
-Linux uses WebKitGTK, so its graphics behavior can differ from Windows.
-Existing saved preferences are preserved: if flicker was enabled in an older
-version, turn it off manually. New vaults after a full preferences reset use the
-new default.
-
-In a local 20-second idle comparison on Ubuntu 22.04 with Xvfb and accelerated
-compositing disabled, SpiritByte plus its WebKit processes used 24.38% of one
-CPU core with the previous defaults and 0.50% with the new defaults. Both runs
-used the onboarding screen with scanlines and glow enabled. These are process
-CPU measurements in a virtual display, not total system usage or a guarantee
-for a particular laptop.
-
-**Add SpiritByte to your application launcher**
-
-Copy `install-spiritbyte.sh` from the bundle's `appimage/` directory together with
-the AppImage. Close SpiritByte before installing or updating it. From Downloads:
-
-```bash
-bash install-spiritbyte.sh SpiritByte_0.1.2_amd64-displayfix.AppImage
-```
-
-Use the `-compat.AppImage` filename instead if that variant works better on your
-system. The installer needs no sudo: it copies the app to
-`~/Applications/SpiritByte.AppImage`, extracts its icon, and creates
-`~/.local/share/applications/com.spiritbyte.app.desktop` (or the corresponding
-`$XDG_DATA_HOME` directory). Search for **SpiritByte** in your application launcher.
-The keyboard shortcut depends on your Hyprland configuration; if its launcher
-shows only commands, switch it to desktop/application mode. Running the installer
-again updates the same entry and keeps your vault.
+The checker uses disposable XDG data, 1,000 fictitious credentials, actual encrypted
+saves/backups, nested-folder filtering, clipboard expiry, inactivity locking and
+late-unlock rejection. On Hyprland it captures only its own test window and checks
+two rendered GIF frames. Memory measurements report the entire process tree's PSS,
+summed RSS and CPU; compare the same screen/background and avoid overlapping runs.
 
 **Reset a forgotten master key**
 
@@ -246,20 +259,20 @@ For version 0.1.1, close SpiritByte and run the new installer using the same ins
 - [Rust](https://www.rust-lang.org/tools/install) toolchain (`cargo`)
 - Platform-specific Tauri [prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-**Development**
+**Windows/macOS development**
 
 ```bash
 pnpm install
 pnpm tauri dev
 ```
 
-**Production build**
+**Windows/macOS production build**
 
 ```bash
 pnpm tauri build
 ```
 
-Tauri builds bundles for the current operating system. On Windows, `bundle.targets: "all"` produces MSI/NSIS installers; Linux packages must be built in a Linux environment. See the [Tauri AppImage guide](https://v2.tauri.app/distribute/appimage/) for portability requirements.
+On Windows, Tauri produces the existing MSI/NSIS installers. Linux builds the separate GTK client as described below; it does not need Node.js or WebKitGTK.
 
 **Build Linux packages from Windows with Docker Desktop**
 
@@ -269,26 +282,58 @@ Start Docker Desktop with Linux containers enabled, then run from the desktop pr
 ./scripts/build-linux.ps1
 ```
 
-The builder uses Ubuntu 22.04, installs Linux dependencies, and builds the current local sources. It writes standard, `-displayfix.AppImage` and `-compat.AppImage` files to `src-tauri/target/release/bundle/appimage/` and `.deb` files to `src-tauri/target/release/bundle/deb/`, alongside the Windows installers. The first build downloads the toolchains; subsequent builds reuse Docker's image and Rust caches.
-
-**Build directly on CachyOS / Arch Linux**
-
-Install Node.js, pnpm, a current Rust toolchain, and the [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/). Clone the desktop repository before building:
-
-```bash
-git clone https://github.com/OscarTired/SpiritByte-V2.git
-cd SpiritByte-V2
-pnpm install --frozen-lockfile
-pnpm tauri build --bundles appimage -- --locked
-```
-
-The resulting AppImage is in `src-tauri/target/release/bundle/appimage/`. Builds made on a rolling distribution target that system's libraries; use the Ubuntu Docker builder for distribution to older Linux systems.
+The builder uses Ubuntu 22.04 and compiles the local Rust core and native GTK client.
+It writes the native directory and `.tar.gz` archive to
+`linux-native/target/release/bundle/`. It does not build or change Windows installers.
+The first build downloads the toolchain; subsequent builds reuse Docker caches.
+One compiler job limits peak build memory. For a direct CachyOS build, follow
+[the native Linux instructions](#linux--cachyos--native-gtk).
 
 **Run crypto tests**
 
 ```bash
 cargo test --manifest-path core/Cargo.toml --locked
 ```
+
+**Legacy Tauri wallpaper regression (optional)**
+
+With the Linux Tauri build prerequisites installed and an active graphical session:
+
+```bash
+pnpm build
+cargo build --manifest-path src-tauri/Cargo.toml --release --features tauri/custom-protocol --example wallpaper_asset_check --locked
+python3 scripts/linux/check-wallpaper-assets.py
+```
+
+This launches hidden test windows with disposable XDG directories containing `.local`.
+It reproduces the former scope failure, then checks actual WebKit decoding of PNG,
+JPG, GIF, WebP and BMP with the corrected scope. Fake vault/settings probes remain
+outside the asset scope; the check never opens the real vault. The test executable
+is not included in the installed AppImage.
+
+**Legacy Tauri UI regression (optional)**
+
+```bash
+CARGO_BUILD_JOBS=1 cargo build --manifest-path src-tauri/Cargo.toml --release --features tauri/custom-protocol --example linux_ui_check --locked
+python3 scripts/linux/check-linux-ui.py
+```
+
+This opens the production UI with 1,000 fictitious entries, a two-frame GIF and
+scanlines/glow/flicker enabled. On Hyprland, `grim`, `hyprctl` and Python Cairo
+check changing pixels in a crop of the test window. Other desktops check GIF
+decoding and UI behavior. All data is disposable; the real vault is never opened.
+
+**Measure release memory on the laptop**
+
+```bash
+python3 scripts/linux/measure-memory.py /path/to/SpiritByte.AppImage --output memory.json
+```
+
+The script waits 15 seconds, samples the entire process tree for 20 seconds and
+reports CPU, PSS and summed RSS. PSS apportions shared pages; summed RSS counts
+shared pages repeatedly. It uses temporary XDG settings with glow and scanlines,
+keeps resource saving off, and never accesses the real vault. Use `--flicker` or
+`--wallpaper /path/to/image.gif` to compare those effects under identical conditions.
 
 The vault engine is the standalone `spiritbyte-core` Rust library in this
 repository's `core/` directory. Desktop builds use only this local copy and do
@@ -304,7 +349,14 @@ automatically. See [the core library README](core/README.md).
 ## Architecture
 
 ```
-src/                       Frontend (React + TypeScript)
+linux-native/              Linux-only native GTK client (Rust)
+  src/main.rs              Native forms, vault UI, security timers, worker jobs
+  src/background.rs        Bounded image decoding and event-driven GIF rendering
+  src/model.rs             Shared-core transactions and compatible settings
+  src/fonts.rs             Process-local embedded font registration
+  src/ui_check.rs          Opt-in isolated end-to-end checker
+
+src/                       Windows/macOS frontend (React + TypeScript)
   components/              UI primitives, SplashFox, StrengthMeter
   features/                generator, entries, settings
   screens/                 Onboarding, Unlock, VaultApp
@@ -330,7 +382,7 @@ src-tauri/src/             Desktop backend (Rust)
 
 | Layer | Technology |
 |---|---|
-| Desktop runtime | Tauri 2 |
+| Desktop runtime | GTK 3 (Linux), Tauri 2 (Windows/macOS) |
 | Backend | Rust (argon2, chacha20poly1305, bip39, zeroize) |
 | Frontend | React 18, TypeScript 5.6 |
 | State | Zustand 5 |

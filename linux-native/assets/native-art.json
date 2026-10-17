@@ -1,0 +1,20 @@
+[
+  {
+    "source": "public/fox-byte.svg",
+    "source_sha256": "81d50a1b4827943d9c0ec8634a269c97a87dc7f4405a6113b3e76bd277e45a4b",
+    "output": "fox-source.rgba",
+    "output_sha256": "ba01b35c4de68fedb82d33d01ba19fcc4afc09b2d2711e838a7be87e2c2aac8c",
+    "width": 360,
+    "height": 360,
+    "format": "RGBA8"
+  },
+  {
+    "source": "src-tauri/icons/128x128.png",
+    "source_sha256": "69c585fc3a3e8c09b9dd5c47050923ee84120bf3263ce1b15b7fdab703f7af5a",
+    "output": "window-icon.rgba",
+    "output_sha256": "59237261d87bfb27329e9febe051fe147569c3b0bf4e964f1fe0a7ad62a8d064",
+    "width": 128,
+    "height": 128,
+    "format": "RGBA8"
+  }
+]

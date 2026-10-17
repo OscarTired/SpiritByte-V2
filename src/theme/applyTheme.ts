@@ -4,14 +4,20 @@ import { backgroundSource } from "./background";
 
 let activeSettings: Settings | undefined;
 let listening = false;
+// WebKitGTK can report hasFocus() = false during startup on Wayland. Only
+// suspend animations after an actual blur, otherwise the first wallpaper vanishes.
+let focused = true;
 
 function applyBackground(settings: Settings) {
   const body = document.body;
   const { background } = settings;
   let value = "";
   if (background.type === "image" && background.value) {
-    // Removing the image while in the background stops GIF decoding/rendering.
-    if (!settings.lowPowerMode || (!document.hidden && document.hasFocus())) {
+    const animated = /\.(gif|webp)$/i.test(background.value) ||
+      /^data:image\/(gif|webp)[;,]/i.test(background.value);
+    // Keep photos visible in inactive windows. Only unload animated formats on
+    // blur; unload all images when hidden to release decoded surfaces.
+    if (!settings.lowPowerMode || (!document.hidden && (focused || !animated))) {
       value = `url(${JSON.stringify(backgroundSource(background.value))})`;
     }
   } else if (background.type === "gradient" && background.value.includes("|")) {
@@ -45,8 +51,8 @@ export function applyTheme(settings: Settings) {
       if (activeSettings) applyBackground(activeSettings);
     };
     document.addEventListener("visibilitychange", refresh);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("blur", refresh);
+    window.addEventListener("focus", () => { focused = true; refresh(); });
+    window.addEventListener("blur", () => { focused = false; refresh(); });
     listening = true;
   }
   const root = document.documentElement;

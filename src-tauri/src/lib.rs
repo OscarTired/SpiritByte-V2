@@ -1,6 +1,8 @@
 mod backup;
 mod commands;
 mod generator;
+#[cfg(target_os = "linux")]
+mod linux_webview;
 mod state;
 mod vault;
 mod wallpaper;
@@ -11,6 +13,8 @@ use vault::VaultPaths;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    linux_webview::prepare_environment();
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
@@ -25,15 +29,7 @@ pub fn run() {
             #[cfg(target_os = "linux")]
             if let Some(window) = app.get_webview_window("main") {
                 window.with_webview(|webview| {
-                    use webkit2gtk::{SettingsExt, WebContextExt, WebViewExt};
-                    let view = webview.inner();
-                    // A single-page utility needs no browsing-history page cache.
-                    if let Some(context) = view.context() {
-                        context.set_cache_model(webkit2gtk::CacheModel::DocumentViewer);
-                    }
-                    if let Some(settings) = WebViewExt::settings(&view) {
-                        settings.set_enable_page_cache(false);
-                    }
+                    linux_webview::configure(&webview.inner());
                 })?;
             }
             Ok(())
